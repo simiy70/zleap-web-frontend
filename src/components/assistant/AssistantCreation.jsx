@@ -83,7 +83,7 @@ export function CreateAssistantMenu({ trigger, onSelect }) {
 function PageHeader({ title, desc, onBack, modal = false }) {
   return <div className="flex items-start gap-3 border-b border-neutral-200/50 px-8 py-5">
     {!modal && <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="返回"><i className="ri-arrow-left-line text-lg" /></Button>}
-    <div><h2 className="text-lg font-semibold text-neutral-900">{title}</h2><p className="mt-1 text-sm text-neutral-500">{desc}</p></div>
+    <div><h2 className="text-lg font-semibold text-neutral-900">{title}</h2>{desc && <p className="mt-1 text-sm text-neutral-500">{desc}</p>}</div>
   </div>;
 }
 
@@ -161,8 +161,8 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit, modal = false }) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!/^agents?\.md$/i.test(file.name)) {
-      setFileState({ loading: false, error: '仅支持 AGENTS.md 或 agent.md 文件', parsed: null });
+    if (!/\.md$/i.test(file.name)) {
+      setFileState({ loading: false, error: '仅支持 .md 格式文件', parsed: null });
       return;
     }
     if (file.size > 1024 * 1024) {
@@ -184,7 +184,7 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit, modal = false }) {
   if (result) return <div className="flex-1 overflow-y-auto px-6 py-10"><ResultCard assistant={result} onEdit={onEdit} onDone={onBack} /></div>;
 
   return <div className="flex min-h-0 flex-1 flex-col">
-    <PageHeader title="创建 Zleap 助手" desc="只需告诉我们它要做什么，其他配置可在创建后调整。" onBack={onBack} modal={modal} />
+    <PageHeader title="创建 Zleap 助手" desc="" onBack={onBack} modal={modal} />
     <div className="flex-1 overflow-y-auto px-8 py-7">
       <div className="mx-auto max-w-[860px]">
         <div className="inline-flex rounded-xl bg-neutral-100 p-1">
@@ -208,7 +208,7 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit, modal = false }) {
             <input type="file" accept=".md,text/markdown" className="hidden" onChange={handleFile} />
             <span className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl ${fileState.parsed ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-500'}`}><i className={fileState.loading ? 'ri-loader-4-line animate-spin' : fileState.parsed ? 'ri-file-check-line' : 'ri-file-add-line'} /></span>
             <div className="mt-4 text-sm font-medium">{fileState.loading ? '正在读取文件' : fileState.parsed ? fileState.parsed.name : '拖拽文件到此处，或点击上传'}</div>
-            <div className="mt-1 text-[12px] text-neutral-400">{fileState.parsed ? fileState.parsed.desc : '支持 AGENTS.md / agent.md，文件不超过 1MB'}</div>
+            <div className="mt-1 text-[12px] text-neutral-400">{fileState.parsed ? fileState.parsed.desc : '支持 Markdown 文件，推荐命名为 AGENTS.md，文件不超过 1MB'}</div>
           </label>
           {fileState.error && <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-[12px] text-rose-600"><i className="ri-error-warning-line mr-1" />{fileState.error}</div>}
           <div className="mt-5 flex justify-end"><Button disabled={!fileState.parsed || creating} onClick={() => create({ ...fileState.parsed, emoji: '🤖', tone: 'slate' })}>{creating ? '正在生成' : '创建助手'}</Button></div>
@@ -229,14 +229,33 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit, modal = false }) {
 }
 
 export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames, modal = false }) {
-  const [loading, setLoading] = useState(true);
+  const [stage, setStage] = useState('instruction');
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [results, setResults] = useState([]);
   const [sendInstruction, setSendInstruction] = useState(true);
+  const connectCommand = 'npx @zleap/agent connect --token zlp_demo_7h3k';
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 900);
-    return () => window.clearTimeout(timer);
-  }, []);
+    if (!copied) return undefined;
+    const showListTimer = window.setTimeout(() => {
+      setStage('selection');
+      setLoading(true);
+    }, 900);
+    const finishLoadingTimer = window.setTimeout(() => setLoading(false), 1600);
+    return () => {
+      window.clearTimeout(showListTimer);
+      window.clearTimeout(finishLoadingTimer);
+    };
+  }, [copied]);
+
+  const copyConnectCommand = async () => {
+    try {
+      await navigator.clipboard?.writeText(connectCommand);
+    } finally {
+      setCopied(true);
+    }
+  };
 
   const toggle = agent => {
     if (agent.compatibility === 'incompatible') return;
@@ -278,6 +297,31 @@ export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames,
           <span><span className="block text-sm font-medium text-neutral-800">向已接入 Agent 发送 Zleap 信息源连接指令</span><span className="mt-1 block text-[12px] leading-relaxed text-neutral-500">完成后进入对话页，并在每个 Agent 的会话中回显已发送的连接指令。</span></span>
         </label>
         <div className="mt-6 flex justify-end gap-3"><Button variant="outline" onClick={onBack}>返回助手管理</Button><Button onClick={() => onComplete(results, sendInstruction)}>{sendInstruction ? '完成并发送指令' : '完成'}</Button></div>
+      </div>
+    </div>
+  </div>;
+
+  if (stage === 'instruction') return <div className="flex min-h-0 flex-1 flex-col">
+    <PageHeader title="接入外部 Agent" desc="先在终端执行连接指令，系统检测到设备响应后会自动展示 Agent 列表。" onBack={onBack} modal={modal} />
+    <div className="flex-1 overflow-y-auto px-8 py-7">
+      <div className="mx-auto max-w-[760px]">
+        <div className="rounded-3xl bg-white p-7 ring-1 ring-neutral-200/70">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-2xl text-violet-600"><i className="ri-terminal-box-line" /></span>
+            <div><h3 className="font-semibold text-neutral-900">连接当前设备</h3><p className="mt-1 text-[12px] leading-relaxed text-neutral-500">复制下面的指令并粘贴到终端运行。指令仅扫描已支持工具的标准 Agent 配置目录，不读取对话内容和无关文件。</p></div>
+          </div>
+          <div className="mt-6 flex items-center gap-3 rounded-2xl bg-slate-950 px-4 py-3.5 text-slate-100">
+            <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[13px]">{connectCommand}</code>
+            <Button size="sm" onClick={copyConnectCommand} className="shrink-0 bg-white text-slate-900 shadow-none hover:bg-slate-100"><i className={copied ? 'ri-check-line' : 'ri-file-copy-line'} />{copied ? '已复制' : '复制指令'}</Button>
+          </div>
+          <div className={`mt-5 flex items-center gap-3 rounded-2xl px-4 py-3 text-[12px] ${copied ? 'bg-orange-50 text-orange-700' : 'bg-neutral-50 text-neutral-500'}`}>
+            <span className={`h-2 w-2 rounded-full ${copied ? 'animate-pulse bg-orange-500' : 'bg-neutral-300'}`} />
+            {copied ? '正在等待设备响应，连接成功后将自动进入 Agent 选择…' : '复制并运行指令后，当前页面会自动更新连接状态'}
+          </div>
+          <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+            {[['3 分钟', '指令有效期'], ['只读', '扫描权限'], ['本地', '配置来源']].map(([value, label]) => <div key={label} className="rounded-xl bg-neutral-50 px-3 py-3"><div className="text-sm font-semibold">{value}</div><div className="mt-1 text-[10px] text-neutral-400">{label}</div></div>)}
+          </div>
+        </div>
       </div>
     </div>
   </div>;
