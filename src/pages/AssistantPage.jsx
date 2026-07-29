@@ -1,5 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { PageShell, GlassHeader, GlassDock, NewItemCard, CardPagination } from '../components/shell';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import {
+  AssistantDetailPage,
+  CreateAssistantMenu,
+  ExternalAgentPage,
+  INFO_SOURCE_OPTIONS,
+  PUBLIC_SOURCE_IDS,
+  ScopeBadge,
+  ZleapCreatePage,
+} from '../components/assistant/AssistantCreation';
 
 /* ─── SVG ICONS ─── */
 const Icon = {
@@ -101,20 +111,22 @@ function ChatAvatar({ kind, unread }) {
 }
 
 /* ─── ASSISTANT CARD (管理视图) ─── */
-function AssistantCard({ item, onContext }) {
+function AssistantCard({ item, onEdit }) {
   return (
     <div className="group flex cursor-pointer flex-col items-center rounded-2xl border border-neutral-200 bg-white p-5 transition-all hover:border-neutral-300 hover:shadow-md"
       style={{ minHeight: "220px" }}>
       <div className="flex w-full items-start justify-end">
-        <button onClick={e => { e.stopPropagation(); onContext && onContext(item, e); }}
-          className="flex h-6 w-6 items-center justify-center rounded-lg text-neutral-500/60 opacity-0 transition group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700">
-          <Icon.More />
-        </button>
+        {onEdit && <DropdownMenu>
+          <DropdownMenuTrigger><button onClick={e => e.stopPropagation()} aria-label={`操作${item.name}`}
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-neutral-500/60 opacity-0 transition group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700"><Icon.More /></button></DropdownMenuTrigger>
+          <DropdownMenuContent className="w-36"><DropdownMenuItem onClick={() => onEdit(item)}><i className="ri-edit-line" />编辑助手</DropdownMenuItem></DropdownMenuContent>
+        </DropdownMenu>}
       </div>
       <div className="mt-1">
         <AssistantAvatar emoji={item.emoji} tone={item.tone} />
       </div>
       <div className="mt-3 line-clamp-1 text-[15px] font-semibold text-neutral-900">{item.name}</div>
+      {item.scope && <div className="mt-2 flex items-center gap-2"><ScopeBadge scope={item.scope} />{item.sourceIds && <span className="text-[10px] text-neutral-400">{item.sourceIds.length} 个信息源</span>}</div>}
       {item.creator === "这里最…" && (
         <div className="mt-2 flex items-center gap-2 text-[12px] text-neutral-400">
           <span><b className="font-medium text-neutral-600">{item.followers ?? 0}</b>粉丝</span>
@@ -140,7 +152,7 @@ function AssistantCard({ item, onContext }) {
 }
 
 /* ─── ASSISTANT LIST ROW (列表视图) ─── */
-function AssistantRow({ item, onContext }) {
+function AssistantRow({ item, onEdit }) {
   return (
     <div className="group flex cursor-pointer items-center gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-3 transition-all hover:border-neutral-300 hover:shadow-sm">
       <AssistantAvatar emoji={item.emoji} tone={item.tone} size={48} />
@@ -160,7 +172,7 @@ function AssistantRow({ item, onContext }) {
           <span>关注</span>
         </button>
       )}
-      <button onClick={e => { e.stopPropagation(); onContext && onContext(item, e); }}
+      <button onClick={e => { e.stopPropagation(); onEdit?.(item); }}
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-neutral-500/60 opacity-0 transition group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700">
         <Icon.More />
       </button>
@@ -169,7 +181,7 @@ function AssistantRow({ item, onContext }) {
 }
 
 /* ─── 管理视图 ─── */
-function ManagementView({ items, view, onCreateNew }) {
+function ManagementView({ items, view, onCreateSelect, onEdit }) {
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const itemKey = items.map(item => item.id).join('|');
@@ -182,15 +194,15 @@ function ManagementView({ items, view, onCreateNew }) {
   if (view === "list") {
     return (
       <div className="space-y-2 p-6">
-        {items.map(a => <AssistantRow key={a.id} item={a} />)}
+        {items.map(a => <AssistantRow key={a.id} item={a} onEdit={onEdit} />)}
       </div>
     );
   }
   return (
     <div className="flex flex-1 flex-col p-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {onCreateNew && <NewItemCard label="创建助手" onClick={onCreateNew} className="min-h-full" />}
-        {pagedItems.map(a => <AssistantCard key={a.id} item={a} />)}
+        {onCreateSelect && <CreateAssistantMenu trigger={<NewItemCard label="创建助手" className="min-h-full" />} onSelect={onCreateSelect} />}
+        {pagedItems.map(a => <AssistantCard key={a.id} item={a} onEdit={a.creator === "这里最…" ? onEdit : null} />)}
       </div>
       <CardPagination page={page} totalPages={totalPages} totalItems={items.length} onPageChange={setPage} className="mt-auto pt-8" />
     </div>
@@ -198,22 +210,22 @@ function ManagementView({ items, view, onCreateNew }) {
 }
 
 /* ─── 对话视图 ─── */
-function ChatView({ initialDraft = "", initialChatName = "" }) {
-  const [activeChatId, setActiveChatId] = useState(() => chatSessions.find(s => s.name === initialChatName)?.id ?? 101);
+function ChatView({ sessions, threadsBySessionId, activeChatId, onActiveChatChange, onSend, initialDraft = "" }) {
   const [chatSearch, setChatSearch] = useState("");
   const [draft, setDraft] = useState(initialDraft);
   const [visibleSessionCount, setVisibleSessionCount] = useState(6);
   const messagesRef = useRef(null);
   const sessionsListRef = useRef(null);
-  const activeChat = chatSessions.find(c => c.id === activeChatId) || chatSessions[0];
+  const activeChat = sessions.find(c => c.id === activeChatId) || sessions[0];
+  const thread = threadsBySessionId[activeChat?.id] || [];
 
   const filteredSessions = useMemo(() => {
     const kw = chatSearch.trim().toLowerCase();
-    if (!kw) return chatSessions;
-    return chatSessions.filter(c =>
+    if (!kw) return sessions;
+    return sessions.filter(c =>
       c.name.toLowerCase().includes(kw) || c.preview.toLowerCase().includes(kw)
     );
-  }, [chatSearch]);
+  }, [chatSearch, sessions]);
 
   const visibleSessions = filteredSessions.slice(0, visibleSessionCount);
 
@@ -237,7 +249,20 @@ function ChatView({ initialDraft = "", initialChatName = "" }) {
 
   useEffect(() => {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-  }, [activeChatId]);
+  }, [activeChatId, thread.length]);
+
+  useEffect(() => {
+    if (initialDraft) setDraft(initialDraft);
+  }, [initialDraft]);
+
+  if (!activeChat) return <div className="flex flex-1 items-center justify-center text-sm text-neutral-400">暂无对话</div>;
+
+  const send = () => {
+    const value = draft.trim();
+    if (!value) return;
+    onSend(activeChat.id, value);
+    setDraft("");
+  };
 
   return (
     <div className="px-6 pt-8">
@@ -255,7 +280,7 @@ function ChatView({ initialDraft = "", initialChatName = "" }) {
           </div>
           <div ref={sessionsListRef} onScroll={handleSessionScroll} className="flex-1 overflow-y-auto no-scrollbar px-2 pb-3">
             {visibleSessions.map(c => (
-              <button key={c.id} onClick={() => setActiveChatId(c.id)}
+              <button key={c.id} onClick={() => onActiveChatChange(c.id)}
                 className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition ${c.id === activeChatId ? "bg-white shadow-sm ring-1 ring-neutral-200" : "hover:bg-white/70"}`}>
                 <ChatAvatar kind={c.avatarKind} unread={c.unread} />
                 <div className="min-w-0 flex-1">
@@ -283,9 +308,12 @@ function ChatView({ initialDraft = "", initialChatName = "" }) {
           </div>
 
           <div ref={messagesRef} className="flex-1 space-y-3 overflow-y-auto no-scrollbar bg-[#fafaf8] px-8 py-6">
-            {chatThread.map((m, idx) => {
+            {thread.map((m, idx) => {
               if (m.role === "time") {
                 return <div key={idx} className="py-1 text-center text-[12px] text-neutral-400">{m.content}</div>;
+              }
+              if (m.role === "user") {
+                return <div key={idx} className="ml-auto max-w-[78%] whitespace-pre-wrap rounded-2xl bg-orange-500 px-4 py-3 text-[13.5px] leading-relaxed text-white shadow-sm shadow-orange-500/15">{m.content}</div>;
               }
               if (m.type === "text") {
                 const parts = m.content.split(/\*\*(.+?)\*\*/g);
@@ -341,8 +369,8 @@ function ChatView({ initialDraft = "", initialChatName = "" }) {
                 rows="2"
                 placeholder={`随便给 ${activeChat.name} 发点什么~`}
                 className="w-full resize-none border-0 bg-transparent text-[13.5px] text-neutral-800 outline-none placeholder-neutral-400" />
-              <button className={`absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full transition ${draft.trim() ? "bg-orange-500 text-white shadow-sm shadow-orange-500/25 hover:bg-orange-600" : "bg-neutral-100 text-neutral-400"}`}
-                title="发送">
+              <button onClick={send} disabled={!draft.trim()} className={`absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full transition ${draft.trim() ? "bg-orange-500 text-white shadow-sm shadow-orange-500/25 hover:bg-orange-600" : "bg-neutral-100 text-neutral-400"}`}
+                title="发送" aria-label="发送消息">
                 <Icon.Send />
               </button>
             </div>
@@ -365,215 +393,173 @@ const SUB_TABS = [
   { id: "recommend", label: "推荐" },
 ];
 
-/* ─── 创建助手弹窗 ─── */
-function CreateAssistantModal({ onClose, onCreate }) {
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const [emoji, setEmoji] = useState("🐣");
-  const [tone, setTone] = useState("amber");
-  const emojis = ["🐶", "🐣", "🦜", "🐘", "🍇", "🤖", "📰", "🧠", "✨", "🚀", "💡", "🎯"];
-  const tones = [
-    { id: "amber",  label: "琥珀" }, { id: "slate",  label: "石板" },
-    { id: "violet", label: "紫罗兰" }, { id: "rose",   label: "玫瑰" },
-    { id: "green",  label: "翠绿" }, { id: "gray",   label: "灰岩" },
-  ];
-  const canCreate = name.trim().length > 0;
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-neutral-900/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-[520px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
-          <div className="text-[15px] font-semibold text-neutral-900">创建助手</div>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700">
-            <Icon.Close />
-          </button>
-        </div>
-        <div className="space-y-5 px-6 py-5">
-          {/* 头像预览 */}
-          <div className="flex items-center gap-4">
-            <AssistantAvatar emoji={emoji} tone={tone} size={72} />
-            <div className="flex-1 space-y-2">
-              <div className="text-[12px] text-neutral-500">图标</div>
-              <div className="flex flex-wrap gap-1.5">
-                {emojis.map(e => (
-                  <button key={e} onClick={() => setEmoji(e)}
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg border text-lg transition ${emoji === e ? "border-orange-300 bg-orange-50" : "border-neutral-200 bg-white hover:border-neutral-300"}`}>
-                    {e}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 头像色调 */}
-          <div>
-            <div className="mb-2 text-[12px] text-neutral-500">头像色调</div>
-            <div className="flex flex-wrap gap-2">
-              {tones.map(t => (
-                <button key={t.id} onClick={() => setTone(t.id)}
-                  className={`rounded-full border px-3 py-1 text-[12px] transition ${tone === t.id ? "border-orange-300 bg-orange-50 text-orange-600" : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"}`}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 名称 */}
-          <div>
-            <div className="mb-1.5 text-[12px] text-neutral-500">名称 <span className="text-rose-500">*</span></div>
-            <input value={name} onChange={e => setName(e.target.value)}
-              className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none transition placeholder-neutral-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
-              placeholder="给助手起个名字" />
-          </div>
-
-          {/* 简介 */}
-          <div>
-            <div className="mb-1.5 text-[12px] text-neutral-500">简介</div>
-            <textarea value={desc} onChange={e => setDesc(e.target.value)} rows="3"
-              className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition placeholder-neutral-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
-              placeholder="用一两句话描述这个助手能做什么" />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-neutral-100 bg-neutral-50/50 px-6 py-3">
-          <button onClick={onClose} className="h-9 rounded-xl px-4 text-sm text-neutral-600 transition hover:bg-neutral-100">取消</button>
-          <button disabled={!canCreate}
-            onClick={() => { onCreate({ name, desc, emoji, tone }); onClose(); }}
-            className={`h-9 rounded-xl px-4 text-sm font-medium transition ${canCreate ? "bg-orange-500 text-white shadow-sm shadow-orange-500/25 hover:bg-orange-600" : "bg-neutral-100 text-neutral-400"}`}>
-            创建
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
 export default function AssistantPage({ onNavigate, initialPrompt = "", initialChat = "" }) {
-  const [viewMode, setViewMode] = useState(initialPrompt || initialChat ? "chat" : "management"); // "chat" | "management"
-  const [subTab, setSubTab]     = useState("created");     // "mine" | "created" | "recommend"
-  const [search, setSearch]     = useState("");
+  const [viewMode, setViewMode] = useState(initialPrompt || initialChat ? "chat" : "management");
+  const [surface, setSurface] = useState("home"); // home | create | external | detail
+  const [subTab, setSubTab] = useState("created");
+  const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [followFilter, setFollowFilter] = useState("all"); // "all" | "followed" | "unfollowed"
-  const [showCreate, setShowCreate] = useState(false);
+  const [followFilter, setFollowFilter] = useState("all");
   const [customAssistants, setCustomAssistants] = useState([]);
-  const handleCreate = (a) => {
-    setCustomAssistants(prev => [{ id: Date.now(), ...a, followed: true, creator: "这里最…", followers: 0, dynamics: 0 }, ...prev]);
+  const [assistantEdits, setAssistantEdits] = useState({});
+  const [detailId, setDetailId] = useState(null);
+  const [sessions, setSessions] = useState(chatSessions);
+  const [threadsBySessionId, setThreadsBySessionId] = useState(() => Object.fromEntries(
+    chatSessions.map((session, index) => [session.id, index === 0 ? chatThread : [{ role: "bot", type: "text", content: session.preview }]])
+  ));
+  const [activeChatId, setActiveChatId] = useState(() => chatSessions.find(session => session.name === initialChat)?.id ?? 101);
+
+  const normalizeAssistant = assistant => ({
+    prompt: assistant.prompt || assistant.desc || "",
+    scope: assistant.scope || (assistant.creator === "这里最…" ? "mine" : "enterprise"),
+    visibleTargets: assistant.visibleTargets || [],
+    sourceIds: assistant.sourceIds || PUBLIC_SOURCE_IDS,
+    origin: assistant.origin || "Zleap",
+    compatibility: assistant.compatibility || "compatible",
+    ...assistant,
+    ...(assistantEdits[assistant.id] || {}),
+  });
+
+  const allAssistants = useMemo(
+    () => [...customAssistants, ...assistants].map(normalizeAssistant),
+    [customAssistants, assistantEdits],
+  );
+  const detailAssistant = allAssistants.find(item => item.id === detailId) || null;
+
+  const handleCreate = items => {
+    const list = (Array.isArray(items) ? items : [items]).map((item, index) => ({
+      id: item.id || `assistant-${Date.now()}-${index}`,
+      followed: true,
+      creator: "这里最…",
+      followers: 0,
+      dynamics: 0,
+      scope: "mine",
+      visibleTargets: [],
+      sourceIds: PUBLIC_SOURCE_IDS,
+      ...item,
+    }));
+    setCustomAssistants(previous => [...list, ...previous]);
+    setSubTab("created");
+    return list;
   };
 
+  const openCreateSurface = kind => {
+    setViewMode("management");
+    setSurface(kind === "external" ? "external" : "create");
+  };
+
+  const openDetail = assistant => {
+    setDetailId(assistant.id);
+    setViewMode("management");
+    setSurface("detail");
+  };
+
+  const saveAssistant = updated => {
+    setCustomAssistants(previous => previous.map(item => item.id === updated.id ? { ...item, ...updated } : item));
+    setAssistantEdits(previous => ({ ...previous, [updated.id]: { ...(previous[updated.id] || {}), ...updated } }));
+    setSessions(previous => previous.map(session => session.assistantId === updated.id ? { ...session, name: updated.name } : session));
+    setSurface("home");
+    setSubTab("created");
+  };
+
+  const sendMessage = (sessionId, content) => {
+    setThreadsBySessionId(previous => ({
+      ...previous,
+      [sessionId]: [...(previous[sessionId] || []), { role: "user", type: "text", content }],
+    }));
+    setSessions(previous => previous.map(session => session.id === sessionId ? { ...session, preview: content.replace(/\n/g, " ").slice(0, 34), time: "刚刚" } : session));
+  };
+
+  const finishExternalImport = (created, shouldSendInstruction) => {
+    const newSessions = created.map((assistant, index) => ({
+      id: `session-${assistant.id}`,
+      assistantId: assistant.id,
+      name: assistant.name,
+      avatarKind: index % 2 ? "grape" : "cli",
+      time: "刚刚",
+      preview: shouldSendInstruction ? "已发送 Zleap 信息源连接指令" : "Agent 已接入 Zleap",
+      unread: false,
+    }));
+    const newThreads = {};
+    created.forEach((assistant, index) => {
+      const sourceNames = INFO_SOURCE_OPTIONS.filter(source => assistant.sourceIds.includes(source.id)).map(source => source.name);
+      newThreads[`session-${assistant.id}`] = shouldSendInstruction ? [{
+        role: "user",
+        type: "text",
+        content: `请为当前 Agent 连接 Zleap 信息源能力。\n\n可访问的信息源：${sourceNames.join("、")}\n\n请执行：zleap mcp connect --assistant ${assistant.id} --sources ${assistant.sourceIds.join(",")}`,
+      }] : [];
+    });
+    setSessions(previous => [...newSessions, ...previous]);
+    setThreadsBySessionId(previous => ({ ...previous, ...newThreads }));
+    setSurface("home");
+    setSubTab("created");
+    if (shouldSendInstruction && newSessions[0]) {
+      setActiveChatId(newSessions[0].id);
+      setViewMode("chat");
+    } else {
+      setViewMode("management");
+    }
+  };
+
+  useEffect(() => {
+    if (!initialChat) return;
+    const match = sessions.find(session => session.name === initialChat);
+    if (match) {
+      setActiveChatId(match.id);
+      setViewMode("chat");
+      setSurface("home");
+    }
+  }, [initialChat, sessions]);
+
   const filteredAssistants = useMemo(() => {
-    const all = [...customAssistants, ...assistants];
-    let base = all;
-    if (subTab === "mine")      base = base.filter(a => a.followed && a.creator !== "这里最…");
-    if (subTab === "created")   base = base.filter(a => a.creator === "这里最…");
-    if (subTab === "recommend") base = all.filter(a => a.creator !== "这里最…");
-    if (followFilter !== "all") base = base.filter(a => a.followed === (followFilter === "followed"));
-    const kw = search.trim().toLowerCase();
-    if (!kw) return base;
-    return base.filter(a => a.name.toLowerCase().includes(kw) || a.desc.toLowerCase().includes(kw));
-  }, [subTab, search, customAssistants, followFilter]);
+    let base = allAssistants;
+    if (subTab === "mine") base = base.filter(item => item.followed && item.creator !== "这里最…");
+    if (subTab === "created") base = base.filter(item => item.creator === "这里最…");
+    if (subTab === "recommend") base = allAssistants.filter(item => item.creator !== "这里最…");
+    if (followFilter !== "all") base = base.filter(item => item.followed === (followFilter === "followed"));
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return base;
+    return base.filter(item => item.name.toLowerCase().includes(keyword) || item.desc.toLowerCase().includes(keyword));
+  }, [allAssistants, subTab, followFilter, search]);
 
-  return (
-    <PageShell>
-      <div className="flex min-h-screen flex-col">
+  return <PageShell>
+    <div className="flex min-h-screen flex-col">
+      <GlassHeader />
+      <main className="flex w-full min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="glass-soft flex shrink-0 items-center gap-4 border-x-0 border-t-0 px-8 py-2.5">
+          <nav className="flex shrink-0 items-center gap-1">
+            {VIEW_TABS.map(tab => <button key={tab.id} onClick={() => { setSurface("home"); setViewMode(tab.id); }}
+              className={`relative flex h-10 shrink-0 items-center gap-2 px-3 text-sm transition-colors ${viewMode === tab.id && surface === "home" ? "font-medium text-orange-600" : "text-neutral-500 hover:text-neutral-900"}`}>
+              <span className={viewMode === tab.id && surface === "home" ? "text-orange-500" : "text-neutral-400"}><tab.Icon /></span><span>{tab.label}</span>
+              {viewMode === tab.id && surface === "home" && <span className="absolute inset-x-3 -bottom-2.5 h-0.5 rounded-t bg-orange-500" />}
+            </button>)}
+          </nav>
+          <div className="min-w-0 flex-1" />
+          {surface === "home" && <div className="flex shrink-0 items-center gap-3">
+            {viewMode === "management" && <div className="flex items-center gap-2">
+              <div className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"><Icon.Search /></span><input value={search} onChange={event => setSearch(event.target.value)} className={`h-8 w-52 rounded-xl bg-neutral-100/80 pl-9 text-sm placeholder-neutral-400 outline-none transition ring-1 ring-transparent focus:w-64 focus:bg-white focus:ring-orange-200 ${search ? "pr-8" : "pr-3"}`} placeholder="搜索助手…" />{search && <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500"><Icon.Close /></button>}</div>
+              <div className="relative"><button onClick={() => setFilterOpen(value => !value)} aria-expanded={filterOpen} title="筛选" aria-label="筛选" className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${filterOpen || followFilter !== "all" ? "bg-orange-50 text-orange-500 ring-1 ring-orange-200" : "bg-neutral-100/80 text-neutral-500 hover:bg-neutral-200/80 hover:text-neutral-700"}`}><Icon.Filter />{followFilter !== "all" && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white" />}</button>
+                {filterOpen && <><button className="fixed inset-0 z-30 cursor-default" onClick={() => setFilterOpen(false)} aria-label="关闭筛选" /><div className="glass-strong absolute right-0 top-10 z-40 w-48 overflow-hidden rounded-2xl p-1 shadow-xl"><div className="px-3 py-2 text-xs font-semibold text-neutral-500">筛选</div>{[["all", "全部助手"], ["followed", "已关注"], ["unfollowed", "未关注"]].map(([value, label]) => <button key={value} onClick={() => { setFollowFilter(value); setFilterOpen(false); }} className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-white/70 ${followFilter === value ? "bg-orange-50/80 text-orange-600" : "text-neutral-700"}`}><span className="flex-1">{label}</span>{followFilter === value && <Icon.Check />}</button>)}</div></>}
+              </div>
+            </div>}
+            <CreateAssistantMenu trigger={<button className="flex h-8 items-center gap-1.5 rounded-xl bg-orange-500 px-3 text-sm font-medium text-white shadow-sm shadow-orange-500/25 transition hover:bg-orange-600"><Icon.Plus /><span>创建助手</span><i className="ri-arrow-down-s-line" /></button>} onSelect={openCreateSurface} />
+          </div>}
+        </div>
 
-        {/* ── Header：logo + user ── */}
-        <GlassHeader />
+        {surface === "home" && viewMode === "management" && <nav className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-neutral-200/40 px-8 py-3 no-scrollbar">
+          {SUB_TABS.map(tab => <button key={tab.id} onClick={() => setSubTab(tab.id)} className={`flex h-9 shrink-0 items-center rounded-full border px-5 text-sm font-medium transition ${subTab === tab.id ? "border-orange-500 bg-orange-500 text-white shadow-sm shadow-orange-500/20" : "border-neutral-200 bg-white text-neutral-600 hover:border-orange-200 hover:text-orange-600"}`}>{tab.label}</button>)}
+        </nav>}
 
-        {/* ── Main（全图幅布局，与信息源一致） ── */}
-        <main className="flex w-full min-w-0 flex-1 flex-col overflow-hidden">
-
-          {/* 二级菜单：左边视图 tab + 右边子筛选/搜索/创建 */}
-          <div className="glass-soft flex shrink-0 items-center gap-4 border-x-0 border-t-0 px-8 py-2.5">
-            {/* 左：视图 tab（对话 / 助手管理） */}
-            <nav className="flex shrink-0 items-center gap-1">
-              {VIEW_TABS.map(t => (
-                <button key={t.id} onClick={() => setViewMode(t.id)}
-                  className={`relative flex h-10 shrink-0 items-center gap-2 px-3 text-sm transition-colors ${viewMode === t.id ? "font-medium text-orange-600" : "text-neutral-500 hover:text-neutral-900"}`}>
-                  <span className={viewMode === t.id ? "text-orange-500" : "text-neutral-400"}><t.Icon /></span>
-                  <span>{t.label}</span>
-                  {viewMode === t.id && <span className="absolute inset-x-3 -bottom-2.5 h-0.5 rounded-t bg-orange-500" />}
-                </button>
-              ))}
-            </nav>
-
-            <div className="min-w-0 flex-1" />
-
-            <div className="flex shrink-0 items-center gap-3">
-              {/* 搜索（管理视图下显示；对话视图内部有独立搜索） */}
-              {viewMode === "management" && (
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"><Icon.Search /></span>
-                    <input
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      className={`h-8 w-52 rounded-xl bg-neutral-100/80 pl-9 text-sm placeholder-neutral-400 outline-none transition ring-1 ring-transparent focus:w-64 focus:bg-white focus:ring-orange-200 ${search ? "pr-8" : "pr-3"}`}
-                      placeholder="搜索助手…" />
-                    {search && (
-                      <button onClick={() => setSearch("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500">
-                        <Icon.Close />
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <button onClick={() => setFilterOpen(v => !v)} aria-expanded={filterOpen} title="筛选" aria-label="筛选"
-                      className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${filterOpen || followFilter !== "all" ? "bg-orange-50 text-orange-500 ring-1 ring-orange-200" : "bg-neutral-100/80 text-neutral-500 hover:bg-neutral-200/80 hover:text-neutral-700"}`}>
-                      <Icon.Filter />
-                      {followFilter !== "all" && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white" />}
-                    </button>
-                    {filterOpen && (
-                      <>
-                        <button className="fixed inset-0 z-30 cursor-default" onClick={() => setFilterOpen(false)} aria-label="关闭筛选" />
-                        <div className="glass-strong absolute right-0 top-10 z-40 w-48 overflow-hidden rounded-2xl p-1 shadow-xl">
-                          <div className="px-3 py-2 text-xs font-semibold text-neutral-500">筛选</div>
-                          {[["all", "全部助手"], ["followed", "已关注"], ["unfollowed", "未关注"]].map(([value, label]) => (
-                            <button key={value} onClick={() => { setFollowFilter(value); setFilterOpen(false); }}
-                              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-white/70 ${followFilter === value ? "bg-orange-50/80 text-orange-600" : "text-neutral-700"}`}>
-                              <span className="flex-1">{label}</span>{followFilter === value && <Icon.Check />}
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 主按钮：创建助手（常驻） */}
-              <button onClick={() => setShowCreate(true)}
-                className="flex h-8 items-center gap-1.5 rounded-xl bg-orange-500 px-3 text-sm font-medium text-white shadow-sm shadow-orange-500/25 transition hover:bg-orange-600">
-                <Icon.Plus />
-                <span>创建助手</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 助手管理分类标签 */}
-          {viewMode === "management" && (
-            <nav className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-neutral-200/40 px-8 py-3 no-scrollbar">
-              {SUB_TABS.map(s => (
-                <button key={s.id} onClick={() => setSubTab(s.id)}
-                  className={`flex h-9 shrink-0 items-center rounded-full border px-5 text-sm font-medium transition ${subTab === s.id ? "border-orange-500 bg-orange-500 text-white shadow-sm shadow-orange-500/20" : "border-neutral-200 bg-white text-neutral-600 hover:border-orange-200 hover:text-orange-600"}`}>
-                  {s.label}
-                </button>
-              ))}
-            </nav>
-          )}
-
-          {/* 内容区 */}
-          <div className="flex flex-1 flex-col overflow-y-auto pb-32">
-            {viewMode === "management"
-              ? <ManagementView items={filteredAssistants} view="card" onCreateNew={() => setShowCreate(true)} />
-              : <ChatView initialDraft={initialPrompt} initialChatName={initialChat} />}
-          </div>
-        </main>
-      </div>
-
-      {/* ── 一级菜单：底部悬浮 dock（磨玻璃） ── */}
-      <GlassDock active="assistant" onNavigate={onNavigate} />
-
-      {/* 创建助手弹窗 */}
-      {showCreate && <CreateAssistantModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
-    </PageShell>
-  );
+        <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${surface === "home" ? "pb-32" : "pb-24"}`}>
+          {surface === "create" && <ZleapCreatePage onBack={() => setSurface("home")} onCreate={handleCreate} onEdit={openDetail} />}
+          {surface === "external" && <ExternalAgentPage onBack={() => setSurface("home")} onCreate={handleCreate} onComplete={finishExternalImport} existingNames={new Set(allAssistants.map(item => item.name))} />}
+          {surface === "detail" && detailAssistant && <AssistantDetailPage assistant={detailAssistant} onBack={() => setSurface("home")} onSave={saveAssistant} />}
+          {surface === "home" && (viewMode === "management"
+            ? <ManagementView items={filteredAssistants} view="card" onCreateSelect={openCreateSurface} onEdit={openDetail} />
+            : <ChatView sessions={sessions} threadsBySessionId={threadsBySessionId} activeChatId={activeChatId} onActiveChatChange={setActiveChatId} onSend={sendMessage} initialDraft={initialPrompt} />)}
+        </div>
+      </main>
+    </div>
+    <GlassDock active="assistant" onNavigate={onNavigate} />
+  </PageShell>;
 }
