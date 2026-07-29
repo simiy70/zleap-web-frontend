@@ -80,9 +80,9 @@ export function CreateAssistantMenu({ trigger, onSelect }) {
   </DropdownMenu></span>;
 }
 
-function PageHeader({ title, desc, onBack }) {
+function PageHeader({ title, desc, onBack, modal = false }) {
   return <div className="flex items-start gap-3 border-b border-neutral-200/50 px-8 py-5">
-    <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="返回"><i className="ri-arrow-left-line text-lg" /></Button>
+    {!modal && <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="返回"><i className="ri-arrow-left-line text-lg" /></Button>}
     <div><h2 className="text-lg font-semibold text-neutral-900">{title}</h2><p className="mt-1 text-sm text-neutral-500">{desc}</p></div>
   </div>;
 }
@@ -133,7 +133,7 @@ function improvePrompt(prompt) {
   return `${prompt.trim()}\n\n请先澄清目标与约束，再按“结论、依据、下一步”输出结果；遇到信息不足时明确标注，不编造事实。`;
 }
 
-export function ZleapCreatePage({ onBack, onCreate, onEdit }) {
+export function ZleapCreatePage({ onBack, onCreate, onEdit, modal = false }) {
   const [method, setMethod] = useState('manual');
   const [prompt, setPrompt] = useState('');
   const [improved, setImproved] = useState('');
@@ -184,7 +184,7 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit }) {
   if (result) return <div className="flex-1 overflow-y-auto px-6 py-10"><ResultCard assistant={result} onEdit={onEdit} onDone={onBack} /></div>;
 
   return <div className="flex min-h-0 flex-1 flex-col">
-    <PageHeader title="创建 Zleap 助手" desc="只需告诉我们它要做什么，其他配置可在创建后调整。" onBack={onBack} />
+    <PageHeader title="创建 Zleap 助手" desc="只需告诉我们它要做什么，其他配置可在创建后调整。" onBack={onBack} modal={modal} />
     <div className="flex-1 overflow-y-auto px-8 py-7">
       <div className="mx-auto max-w-[860px]">
         <div className="inline-flex rounded-xl bg-neutral-100 p-1">
@@ -228,7 +228,7 @@ export function ZleapCreatePage({ onBack, onCreate, onEdit }) {
   </div>;
 }
 
-export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames }) {
+export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames, modal = false }) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(new Set());
   const [results, setResults] = useState([]);
@@ -265,7 +265,7 @@ export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames 
   };
 
   if (results.length > 0) return <div className="flex min-h-0 flex-1 flex-col">
-    <PageHeader title="外部 Agent 已接入" desc={`成功创建 ${results.length} 个私密助手，并关联全部公共信息源。`} onBack={onBack} />
+    <PageHeader title="外部 Agent 已接入" desc={`成功创建 ${results.length} 个私密助手，并关联全部公共信息源。`} onBack={onBack} modal={modal} />
     <div className="flex-1 overflow-y-auto px-8 py-7">
       <div className="mx-auto max-w-[760px]">
         <div className="space-y-3">{results.map(item => <div key={item.id} className="flex items-center gap-4 rounded-2xl bg-white px-5 py-4 ring-1 ring-neutral-200/70">
@@ -283,7 +283,7 @@ export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames 
   </div>;
 
   return <div className="flex min-h-0 flex-1 flex-col">
-    <PageHeader title="接入外部 Agent" desc="系统正在实时同步设备中的 Agent 状态，选择需要导入的助手。" onBack={onBack} />
+    <PageHeader title="接入外部 Agent" desc="系统正在实时同步设备中的 Agent 状态，选择需要导入的助手。" onBack={onBack} modal={modal} />
     <div className="flex-1 overflow-y-auto px-8 py-7">
       <div className="mx-auto max-w-[900px]">
         <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-[12px] text-emerald-700"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />设备连接正常，Agent 列表将自动更新</div>

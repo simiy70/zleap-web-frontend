@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { PageShell, GlassHeader, GlassDock, NewItemCard, CardPagination } from '../components/shell';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Dialog, DialogContent } from '../components/ui/dialog';
 import {
   AssistantDetailPage,
   CreateAssistantMenu,
@@ -395,7 +396,8 @@ const SUB_TABS = [
 
 export default function AssistantPage({ onNavigate, initialPrompt = "", initialChat = "" }) {
   const [viewMode, setViewMode] = useState(initialPrompt || initialChat ? "chat" : "management");
-  const [surface, setSurface] = useState("home"); // home | create | external | detail
+  const [surface, setSurface] = useState("home"); // home | detail
+  const [createModal, setCreateModal] = useState(null); // zleap | external | null
   const [subTab, setSubTab] = useState("created");
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -445,10 +447,12 @@ export default function AssistantPage({ onNavigate, initialPrompt = "", initialC
 
   const openCreateSurface = kind => {
     setViewMode("management");
-    setSurface(kind === "external" ? "external" : "create");
+    setSurface("home");
+    setCreateModal(kind === "external" ? "external" : "zleap");
   };
 
   const openDetail = assistant => {
+    setCreateModal(null);
     setDetailId(assistant.id);
     setViewMode("management");
     setSurface("detail");
@@ -492,6 +496,7 @@ export default function AssistantPage({ onNavigate, initialPrompt = "", initialC
     setSessions(previous => [...newSessions, ...previous]);
     setThreadsBySessionId(previous => ({ ...previous, ...newThreads }));
     setSurface("home");
+    setCreateModal(null);
     setSubTab("created");
     if (shouldSendInstruction && newSessions[0]) {
       setActiveChatId(newSessions[0].id);
@@ -551,8 +556,6 @@ export default function AssistantPage({ onNavigate, initialPrompt = "", initialC
         </nav>}
 
         <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto ${surface === "home" ? "pb-32" : "pb-24"}`}>
-          {surface === "create" && <ZleapCreatePage onBack={() => setSurface("home")} onCreate={handleCreate} onEdit={openDetail} />}
-          {surface === "external" && <ExternalAgentPage onBack={() => setSurface("home")} onCreate={handleCreate} onComplete={finishExternalImport} existingNames={new Set(allAssistants.map(item => item.name))} />}
           {surface === "detail" && detailAssistant && <AssistantDetailPage assistant={detailAssistant} onBack={() => setSurface("home")} onSave={saveAssistant} />}
           {surface === "home" && (viewMode === "management"
             ? <ManagementView items={filteredAssistants} view="card" onCreateSelect={openCreateSurface} onEdit={openDetail} />
@@ -561,5 +564,11 @@ export default function AssistantPage({ onNavigate, initialPrompt = "", initialC
       </main>
     </div>
     <GlassDock active="assistant" onNavigate={onNavigate} />
+    <Dialog open={Boolean(createModal)} onOpenChange={open => { if (!open) setCreateModal(null); }}>
+      <DialogContent className="flex h-[760px] max-h-[90vh] w-[960px] max-w-[calc(100vw-32px)] flex-col overflow-hidden p-0">
+        {createModal === "zleap" && <ZleapCreatePage modal onBack={() => setCreateModal(null)} onCreate={handleCreate} onEdit={openDetail} />}
+        {createModal === "external" && <ExternalAgentPage modal onBack={() => setCreateModal(null)} onCreate={handleCreate} onComplete={finishExternalImport} existingNames={new Set(allAssistants.map(item => item.name))} />}
+      </DialogContent>
+    </Dialog>
   </PageShell>;
 }
