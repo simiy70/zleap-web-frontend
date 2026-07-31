@@ -338,7 +338,7 @@ export function ExternalAgentPage({ onBack, onCreate, onComplete, existingNames,
             const status = disabled ? ['不兼容', 'bg-rose-50 text-rose-600'] : agent.compatibility === 'adjustment' ? ['需调整', 'bg-amber-50 text-amber-600'] : ['可导入', 'bg-emerald-50 text-emerald-600'];
             return <button key={agent.id} disabled={disabled} onClick={() => toggle(agent)} className={`flex w-full items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left ring-1 transition ${disabled ? 'cursor-not-allowed opacity-55 ring-neutral-200/60' : checked ? 'ring-2 ring-orange-300' : 'ring-neutral-200/70 hover:ring-orange-200'}`}>
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${checked ? 'border-orange-500 bg-orange-500 text-white' : 'border-neutral-300'}`}>{checked && <i className="ri-check-line text-sm" />}</span>
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-lg font-semibold text-neutral-600">{agent.source.slice(0, 2)}</span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-lg font-semibold text-neutral-600">{agent.source.slice(0, 2)}</span>
               <span className="min-w-0 flex-1"><span className="block font-medium text-neutral-900">{agent.name}</span><span className="mt-1 block truncate font-mono text-[11px] text-neutral-400">{agent.path}</span></span>
               <span className="hidden text-[11px] text-neutral-400 sm:block">{agent.updated}</span><span className={`rounded-full px-2.5 py-1 text-[11px] ${status[1]}`}>{status[0]}</span>
             </button>;
