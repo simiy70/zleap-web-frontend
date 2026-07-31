@@ -62,7 +62,7 @@ const centerItems = [
   ['messages', '消息', 'ri-message-3-line'],
   ['contacts', '通讯录', 'ri-contacts-book-2-line'],
   ['automation', '自动化', 'ri-task-line'],
-  ['discover', '招聘', 'ri-user-search-line'],
+  ['discover', '发现', 'ri-compass-3-line'],
 ];
 const agentTabs = [['messages', '消息'], ['dynamics', '动态'], ['tasks', '自动化任务'], ['capabilities', '能力配置']];
 
