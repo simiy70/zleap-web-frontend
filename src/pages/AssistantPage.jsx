@@ -29,6 +29,7 @@ const initialTasks = [
 const initialSessions = {
   feishu: [{ id: 'feishu-main', name: '持续会话', updatedAt: now - 4000, updatedLabel: '15:05', archived: false }],
   research: [{ id: 'research-main', name: '持续会话', updatedAt: now - 6000, updatedLabel: '14:20', archived: false }],
+  content: [{ id: 'content-main', name: '持续会话', updatedAt: now - 8000, updatedLabel: '昨天', archived: false }],
   'codex-local': [
     { id: 'codex-refactor', name: 'Agent 中心重构', updatedAt: now, updatedLabel: '刚刚', archived: false },
     { id: 'codex-review', name: '代码审查', updatedAt: now - 86400000, updatedLabel: '昨天', archived: false },
@@ -43,6 +44,7 @@ const initialMessages = {
     { id: 3, role: 'agent', text: '已创建自动化任务「飞书研发周报」，当前状态为正常执行。', time: '15:05', taskId: 1 },
   ],
   'research-main': [{ id: 1, role: 'agent', text: '今天的 AI 行业日报已更新，共发现 12 条值得关注的变化。', time: '09:02' }],
+  'content-main': [{ id: 1, role: 'agent', text: '很高兴认识你。告诉我品牌、受众和想表达的内容，我们就可以开始合作。', time: '昨天' }],
   'codex-refactor': [
     { id: 1, role: 'agent', text: '我已经读取当前仓库。你希望先处理 Agent 中心还是项目空间？', time: '14:56' },
     { id: 2, role: 'user', text: '先把 Agent 中心改成联系人和对话的体验。', time: '14:57' },
@@ -60,7 +62,7 @@ const centerItems = [
   ['messages', '消息', 'ri-message-3-line'],
   ['contacts', '通讯录', 'ri-contacts-book-2-line'],
   ['automation', '自动化', 'ri-task-line'],
-  ['discover', '发现', 'ri-compass-3-line'],
+  ['discover', '招聘', 'ri-user-search-line'],
 ];
 const agentTabs = [['messages', '消息'], ['dynamics', '动态'], ['tasks', '自动化任务'], ['capabilities', '能力配置']];
 
@@ -184,6 +186,22 @@ function AgentPane(props) {
   </section>;
 }
 
+function agentCategory(agent) {
+  if (agent.source === 'local') return 'local';
+  if (agent.owned) return 'created';
+  if (agent.labels.includes('关注中') && !agent.labels.includes('可对话')) return 'following';
+  if (agent.labels.includes('官方')) return 'official';
+  return 'following';
+}
+
+function AgentContactMeta({ agent, taskCount, sessionCount }) {
+  const category = agentCategory(agent);
+  if (category === 'local') return <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400"><span><i className="ri-device-line mr-1" />{agent.status}</span><span><i className="ri-history-line mr-1" />{sessionCount} 个会话</span><span>{agent.tools.join(' · ')}</span></div>;
+  if (category === 'created') return <div className="mt-4 flex gap-4 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400"><span>{agent.skills.length} Skills</span><span>{agent.tools.length} Tools</span><span>{taskCount} 个自动化</span></div>;
+  if (category === 'official') return <div className="mt-4 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">{agent.skills.slice(0, 3).map(skill => <span key={skill} className="rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-600">{skill}</span>)}</div>;
+  return <div className="mt-4 flex items-center gap-4 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400"><span><i className="ri-rss-line mr-1" />关注中</span><span>{(dynamics[agent.id] || []).length} 条近期动态</span></div>;
+}
+
 export default function AssistantPage({ onNavigate, initialChat = '' }) {
   const [agents, setAgents] = useState(baseAgents);
   const [centerView, setCenterView] = useState('messages');
@@ -192,17 +210,22 @@ export default function AssistantPage({ onNavigate, initialChat = '' }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [sessions, setSessions] = useState(initialSessions);
   const [messages, setMessages] = useState(initialMessages);
-  const [activeSessionByAgent, setActiveSessionByAgent] = useState({ feishu: 'feishu-main', research: 'research-main', 'codex-local': 'codex-refactor' });
+  const [activeSessionByAgent, setActiveSessionByAgent] = useState({ feishu: 'feishu-main', research: 'research-main', 'codex-local': 'codex-refactor', content: 'content-main' });
   const [query, setQuery] = useState('');
+  const [contactType, setContactType] = useState('all');
   const [taskStatus, setTaskStatus] = useState('all');
-  const [taskAgent, setTaskAgent] = useState('all');
+  const [taskAgentQuery, setTaskAgentQuery] = useState('');
+  const [recruitType, setRecruitType] = useState('all');
   const [automationDraft, setAutomationDraft] = useState(null);
   const [createModal, setCreateModal] = useState(null);
   const activeAgent = agents.find(agent => agent.id === activeAgentId) || agents[0];
   const activeSessionId = activeSessionByAgent[activeAgent.id] || sessions[activeAgent.id]?.find(item => !item.archived)?.id;
   const contactAgents = agents.filter(agent => agent.labels.includes('可对话'));
-  const filteredContacts = agents.filter(agent => `${agent.name}${agent.desc}${agent.labels.join('')}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const filteredTasks = tasks.filter(task => (taskStatus === 'all' || (taskStatus === 'running') === task.enabled) && (taskAgent === 'all' || task.agentId === taskAgent));
+  const filteredContacts = agents.filter(agent => `${agent.name}${agent.desc}${agent.labels.join('')}`.toLowerCase().includes(query.trim().toLowerCase()) && (contactType === 'all' || agentCategory(agent) === contactType));
+  const filteredTasks = tasks.filter(task => {
+    const taskOwner = agents.find(agent => agent.id === task.agentId);
+    return (taskStatus === 'all' || (taskStatus === 'running') === task.enabled) && (!taskAgentQuery.trim() || taskOwner?.name.toLowerCase().includes(taskAgentQuery.trim().toLowerCase()));
+  });
   const openAgent = (id, tab = 'messages') => { setActiveAgentId(id); setAgentTab(tab); setCenterView('messages'); };
   const appendMessage = (sessionId, role, text, extra = {}) => setMessages(previous => ({ ...previous, [sessionId]: [...(previous[sessionId] || []), { id: Date.now() + Math.random(), role, text, time: '刚刚', ...extra }] }));
   const startAutomationGuide = agentId => {
@@ -234,6 +257,10 @@ export default function AssistantPage({ onNavigate, initialChat = '' }) {
     setMessages(previous => ({ ...previous, [id]: [{ id: Date.now(), role: 'agent', text: '新会话已准备好，你想从哪里开始？', time: '刚刚' }] }));
     setActiveSessionByAgent(previous => ({ ...previous, [activeAgent.id]: id }));
   };
+  const hireAgent = id => {
+    setAgents(previous => previous.map(agent => agent.id === id ? { ...agent, labels: [...new Set([...agent.labels, '可对话'])], status: '在线' } : agent));
+    openAgent(id);
+  };
   const renameSession = (id, name) => setSessions(previous => ({ ...previous, [activeAgent.id]: previous[activeAgent.id].map(item => item.id === id ? { ...item, name } : item) }));
   const removeSession = (id, archived) => {
     const remaining = sessions[activeAgent.id].map(item => item.id === id ? { ...item, archived } : item).filter(item => archived || item.id !== id);
@@ -256,16 +283,16 @@ export default function AssistantPage({ onNavigate, initialChat = '' }) {
   return <PageShell><GlassHeader />
     <main className="flex min-h-[calc(100vh-56px)] flex-col pb-24">
       <div className="glass-soft sticky top-14 z-30 flex items-center gap-5 border-x-0 border-t-0 px-8 py-2.5">
-        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">{centerItems.map(([id, label, icon]) => <button key={id} onClick={() => setCenterView(id)} className={`relative flex h-10 shrink-0 items-center gap-2 px-3 text-sm ${centerView === id ? 'font-medium text-orange-600' : 'text-neutral-500 hover:text-neutral-900'}`}><i className={`${icon} text-base`} />{label}{centerView === id && <span className="absolute inset-x-3 -bottom-2.5 h-0.5 rounded-t bg-orange-500" />}</button>)}</nav>
+        <nav className="flex min-w-0 flex-1 items-center gap-1">{centerItems.map(([id, label, icon]) => <button key={id} onClick={() => setCenterView(id)} className={`relative flex h-10 shrink-0 items-center gap-2 px-3 text-sm ${centerView === id ? 'font-medium text-orange-600' : 'text-neutral-500 hover:text-neutral-900'}`}><i className={`${icon} text-base`} />{label}{centerView === id && <span className="absolute inset-x-3 -bottom-2.5 h-0.5 rounded-t bg-orange-500" />}</button>)}</nav>
         <CreateAssistantMenu trigger={<Button size="sm" className="h-8"><i className="ri-add-line" />添加 Agent<i className="ri-arrow-down-s-line" /></Button>} onSelect={setCreateModal} />
       </div>
       {centerView === 'messages' && <div className="flex min-h-0 flex-1">
         <aside className="w-72 shrink-0 border-r border-neutral-200/70 bg-white p-3"><div className="relative mb-3"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input value={query} onChange={event => setQuery(event.target.value)} className="pl-9" placeholder="搜索 Agent" /></div><div className="space-y-1">{contactAgents.filter(agent => !query || agent.name.toLowerCase().includes(query.toLowerCase())).map(agent => <button key={agent.id} onClick={() => openAgent(agent.id)} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ${activeAgent.id === agent.id ? 'bg-orange-50' : 'hover:bg-neutral-50'}`}><AgentAvatar agent={agent} size="sm" /><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-sm font-medium">{agent.name}</span><LocalBadge agent={agent} /></span><span className="mt-1 block truncate text-[11px] text-neutral-400">{agent.desc}</span></span></button>)}</div></aside>
         <AgentPane agent={activeAgent} tab={agentTab} onTabChange={setAgentTab} sessions={sessions[activeAgent.id] || []} activeSessionId={activeSessionId} onSessionChange={id => setActiveSessionByAgent(previous => ({ ...previous, [activeAgent.id]: id }))} messages={messages} tasks={tasks} automationDraft={automationDraft} onDraftChange={change => setAutomationDraft(previous => ({ ...previous, ...change }))} onConfirmDraft={confirmDraft} onCancelDraft={() => { appendMessage(activeSessionId, 'agent', '好的，这次不会创建任务。'); setAutomationDraft(null); }} onSend={sendMessage} onToggleTask={id => setTasks(previous => previous.map(task => task.id === id ? { ...task, enabled: !task.enabled } : task))} onCreateTask={() => startAutomationGuide(activeAgent.id)} onFollow={() => setAgents(previous => previous.map(agent => agent.id === activeAgent.id ? { ...agent, followed: !agent.followed } : agent))} onCreateSession={createSession} onRenameSession={renameSession} onArchiveSession={id => removeSession(id, true)} onDeleteSession={id => removeSession(id, false)} />
       </div>}
-      {centerView === 'contacts' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1000px]"><div className="relative mb-5 max-w-md"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input value={query} onChange={event => setQuery(event.target.value)} className="pl-9" placeholder="搜索联系人" /></div><div className="grid gap-4 md:grid-cols-2">{filteredContacts.map(agent => <button key={agent.id} onClick={() => openAgent(agent.id)} className="rounded-2xl bg-white p-5 text-left ring-1 ring-neutral-200/70 hover:ring-orange-200"><div className="flex gap-3"><AgentAvatar agent={agent} /><div><div className="flex items-center gap-2 font-semibold">{agent.name}<LocalBadge agent={agent} /></div><p className="mt-1 text-sm text-neutral-400">{agent.desc}</p><div className="mt-3 flex gap-2">{agent.labels.filter(label => label !== '可对话').map(label => <span key={label} className="rounded-full bg-neutral-100 px-2 py-1 text-[10px] text-neutral-500">{label}</span>)}</div></div></div></button>)}</div></div></div>}
-      {centerView === 'automation' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1050px]"><div className="mb-5 flex flex-wrap items-center gap-3"><select value={taskStatus} onChange={event => setTaskStatus(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部状态</option><option value="running">正常执行</option><option value="paused">暂停</option></select><select value={taskAgent} onChange={event => setTaskAgent(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部 Agent</option>{contactAgents.map(agent => <option value={agent.id} key={agent.id}>{agent.name}{agent.source === 'local' ? '（本地）' : ''}</option>)}</select><Button className="ml-auto" onClick={() => startAutomationGuide(taskAgent === 'all' ? contactAgents[0].id : taskAgent)}><i className="ri-add-line" />创建任务</Button></div><div className="grid gap-4 md:grid-cols-2">{filteredTasks.map(task => { const agent = agents.find(item => item.id === task.agentId); return <TaskCard key={task.id} task={task} agent={agent} onOpen={() => openAgent(agent.id, 'tasks')} onToggle={() => setTasks(previous => previous.map(item => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} />; })}</div></div></div>}
-      {centerView === 'discover' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto grid max-w-[1000px] gap-4 md:grid-cols-2">{agents.filter(agent => agent.labels.includes('官方')).map(agent => <article key={agent.id} className="rounded-2xl bg-white p-5 ring-1 ring-neutral-200/70"><div className="flex gap-3"><AgentAvatar agent={agent} /><div className="min-w-0 flex-1"><h3 className="font-semibold">{agent.name}</h3><p className="mt-1 text-sm text-neutral-400">{agent.desc}</p><Button className="mt-4" size="sm" variant="outline" onClick={() => openAgent(agent.id)}>打开</Button></div></div></article>)}</div></div>}
+      {centerView === 'contacts' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1000px]"><div className="mb-5 flex max-w-2xl gap-3"><div className="relative min-w-0 flex-1"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input value={query} onChange={event => setQuery(event.target.value)} className="pl-9" placeholder="搜索联系人" /></div><select value={contactType} onChange={event => setContactType(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部类型</option><option value="official">官方 Agent</option><option value="created">我创建的</option><option value="local">本地 Agent</option><option value="following">关注中</option></select></div><div className="grid gap-4 md:grid-cols-2">{filteredContacts.map(agent => <button key={agent.id} onClick={() => openAgent(agent.id)} className="rounded-2xl bg-white p-5 text-left ring-1 ring-neutral-200/70 transition hover:-translate-y-0.5 hover:ring-orange-200"><div className="flex gap-3"><AgentAvatar agent={agent} /><div className="min-w-0 flex-1"><div className="flex items-center gap-2 font-semibold">{agent.name}<LocalBadge agent={agent} /><span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-normal text-neutral-500">{agentCategory(agent) === 'official' ? '官方' : agentCategory(agent) === 'created' ? '我创建的' : agentCategory(agent) === 'local' ? '本地接入' : '关注中'}</span></div><p className="mt-1 line-clamp-2 text-sm text-neutral-400">{agent.desc}</p></div></div><AgentContactMeta agent={agent} taskCount={tasks.filter(task => task.agentId === agent.id).length} sessionCount={(sessions[agent.id] || []).filter(session => !session.archived).length} /></button>)}</div>{!filteredContacts.length && <div className="rounded-2xl bg-white py-12 text-center text-sm text-neutral-400 ring-1 ring-neutral-200/70">没有符合条件的 Agent</div>}</div></div>}
+      {centerView === 'automation' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1050px]"><div className="mb-5 flex flex-wrap items-center gap-3"><select value={taskStatus} onChange={event => setTaskStatus(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部状态</option><option value="running">正常执行</option><option value="paused">暂停</option></select><div className="relative w-64"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input list="automation-agent-options" value={taskAgentQuery} onChange={event => setTaskAgentQuery(event.target.value)} className="pl-9" placeholder="搜索 Agent" /><datalist id="automation-agent-options">{contactAgents.map(agent => <option value={agent.name} key={agent.id} />)}</datalist></div><Button className="ml-auto" onClick={() => { const matched = contactAgents.find(agent => agent.name.toLowerCase().includes(taskAgentQuery.trim().toLowerCase())); startAutomationGuide(matched?.id || activeAgent.id || contactAgents[0].id); }}><i className="ri-add-line" />创建任务</Button></div><div className="grid gap-4 md:grid-cols-2">{filteredTasks.map(task => { const agent = agents.find(item => item.id === task.agentId); return <TaskCard key={task.id} task={task} agent={agent} onOpen={() => openAgent(agent.id, 'tasks')} onToggle={() => setTasks(previous => previous.map(item => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} />; })}</div>{!filteredTasks.length && <div className="rounded-2xl bg-white py-12 text-center text-sm text-neutral-400 ring-1 ring-neutral-200/70">没有符合条件的自动化任务</div>}</div></div>}
+      {centerView === 'discover' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1000px]"><div className="mb-5 flex items-center gap-3"><select value={recruitType} onChange={event => setRecruitType(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部岗位</option><option value="协作效率">协作效率</option><option value="研究分析">研究分析</option><option value="内容创作">内容创作</option></select><span className="text-xs text-neutral-400">找到适合长期合作的 Agent</span></div><div className="grid gap-4 md:grid-cols-2">{agents.filter(agent => agent.labels.includes('官方')).filter(agent => { const type = agent.id === 'feishu' ? '协作效率' : agent.id === 'research' ? '研究分析' : '内容创作'; return recruitType === 'all' || recruitType === type; }).map(agent => { const hired = agent.labels.includes('可对话'); const role = agent.id === 'feishu' ? '协作效率' : agent.id === 'research' ? '研究分析' : '内容创作'; return <article key={agent.id} className="rounded-2xl bg-white p-5 ring-1 ring-neutral-200/70 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/5"><div className="flex items-start gap-3"><AgentAvatar agent={agent} /><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="font-semibold">{agent.name}</h3><span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">官方认证</span></div><div className="mt-1 text-xs text-orange-500">{role}</div><p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-400">{agent.desc}</p></div></div><div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-neutral-50 p-3 text-center"><div><div className="text-sm font-semibold">{agent.skills.length}</div><div className="mt-0.5 text-[10px] text-neutral-400">Skills</div></div><div><div className="text-sm font-semibold">{agent.tools.length}</div><div className="mt-0.5 text-[10px] text-neutral-400">Tools</div></div><div><div className="text-sm font-semibold text-emerald-600">在线</div><div className="mt-0.5 text-[10px] text-neutral-400">可用状态</div></div></div><div className="mt-4 flex items-center justify-between"><span className="text-[11px] text-neutral-400">{hired ? '已加入你的联系人' : '可随时结束合作'}</span><Button size="sm" variant={hired ? 'outline' : 'default'} onClick={() => hired ? openAgent(agent.id) : hireAgent(agent.id)}>{hired ? '去对话' : '雇佣 Agent'}</Button></div></article>; })}</div></div></div>}
     </main>
     <GlassDock active="agents" onNavigate={onNavigate} />
     <Dialog open={Boolean(createModal)} onOpenChange={open => { if (!open) setCreateModal(null); }}>
