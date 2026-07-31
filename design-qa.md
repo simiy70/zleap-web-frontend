@@ -1,82 +1,45 @@
-# Design QA — 项目信息架构 v4
+**Design QA**
 
-## Evidence
+- Source visual truth: `/tmp/zleap-project-header-before.jpg`（现有设计语言与改版前项目概况）＋用户确认的顶部精简方案。
+- Implementation screenshot: `/tmp/zleap-project-header-final.jpg`。
+- Viewport: 1042 × 783 CSS px；visual viewport 1027 × 783 CSS px；device pixel ratio 2。
+- Image normalization: source and implementation are both 1027 × 772 px browser captures, compared at the same rendered scale and project-overview state.
+- State: 项目详情 / 项目概况，默认项目数据。
 
-- Source visual truth: `/var/folders/cx/wwlc2r057m18t68yq_t948bh0000gn/T/codex-clipboard-654e0532-d623-4d35-ab4b-5b569878a4da.png`
-- Source pixels: `1811 × 1136`
-- Implementation URL: `http://localhost:4174/`
-- Implementation screenshots:
-  - `docs/design-qa/project-sessions-ia-v4.png`
-  - `docs/design-qa/project-overview-ia-v4.png`
-- Implementation capture: application viewport approximately `869 × 805` CSS px, device pixel ratio `1`
-- State:
-  - 项目详情默认「会话」，项目总群选中
-  - 「项目概况」展示项目配置、协作者、权限、动态与产出
+**Full-view comparison evidence**
 
-The reference is an information-architecture diagram rather than a pixel-level UI mock. Comparison therefore treats its hierarchy and labels as the visual truth, while typography, color and component styling intentionally inherit the existing Zleap design language.
+- 顶部由“项目身份、权限摘要、协作者、导航、更多操作”精简为“返回、三个 Tab、更多操作”，内容密度明显下降且保持原有玻璃导航与橙色选中态。
+- 项目名称、可见范围与负责人已集中到“项目信息”；不存在的成员加入字段及对应文案已移除。
+- project.md、技能、资料 / 信息源、工具、协作者、动态与产出的卡片布局、字体、颜色和间距保持原有设计语言。
+- 无需额外局部裁切：两张同尺寸全屏截图中的顶部导航和项目信息卡均可清晰辨认，已在同一次对比中检查。
 
-## Full-view comparison evidence
+**Findings**
 
-- The source’s three project-detail branches map one-to-one to the top navigation: 「会话 / 自动化任务 / 项目概况」.
-- 「会话」is the default page and visibly separates 「项目群聊」from 「独立对话」.
-- 「项目概况」contains every source branch: `project.md`, 技能, 项目资料/信息源, 工具, Agent, 成员, 权限, 项目动态 and 产出.
-- Project list and single-field project creation remain outside the project-detail tabs, matching the source hierarchy.
+- No actionable P0/P1/P2 findings.
+- Fonts and typography: 字体、字号、字重与现有页面一致；Tab 和项目信息标签无换行或截断。
+- Spacing and layout rhythm: 顶部保持 60px 高度；Tab 单行排列，横向空间不足时仅横向滚动，纵向溢出被禁止。
+- Colors and visual tokens: 延续中性色、玻璃背景和橙色激活状态，没有引入新视觉语言。
+- Image quality and asset fidelity: 本次不新增图片资产；继续使用项目现有 Remix Icon 与卡片样式。
+- Copy and content: 已删除不存在的成员加入字段及对应文案，保留项目名称、可见范围、负责人和用户真实项目内容。
 
-## Focused region comparison evidence
+**Comparison history**
 
-- Top navigation: exactly three same-level tabs; no former 「协作 / 工作 / 资料」entries remain.
-- Session sidebar: group conversations and independent Agent conversations are distinct sections and both are interactive.
-- Project configuration cards: source configuration branches are preserved as real content rather than explanatory copy.
-- A separate close crop was unnecessary because all architecture labels and controls are legible at the captured viewport.
+1. Initial implementation pass: 发现 Tab 获得焦点时出现矩形描边，同时原负偏移下划线在禁止纵向溢出后存在裁切风险（P2）。
+2. Fix: Tab 改为与 60px 顶部栏同高，下划线放入容器底部；键盘焦点改用轻量背景反馈。
+3. Post-fix evidence: `/tmp/zleap-project-header-final.jpg` 中选中态仅保留底部橙色指示线，顶部无换行、纵向滚动或信息拥挤。
 
-## Required fidelity surfaces
+**Primary interactions tested**
 
-- Fonts and typography: existing Zleap system typography, weights and small-label hierarchy are consistent across all three tabs. No diagram typography was copied because the reference does not prescribe production UI type.
-- Spacing and layout rhythm: top navigation follows the information-source module pattern; session list, content area and cards maintain the existing 16–24 px spacing rhythm and rounded-card system.
-- Colors and visual tokens: existing orange active state, neutral surfaces, cyan user messages and semantic green/gray automation states remain consistent.
-- Image quality and asset fidelity: the reference contains no production image assets. Existing Remix Icon glyphs and circular Agent avatars are retained; no new decorative assets were required.
-- Copy and content: all requested information-architecture labels are present. Persistent module-explanation paragraphs were not introduced.
+- 会话、自动化任务、项目概况三个 Tab 可正常切换。
+- 更多菜单可打开，包含项目设置、通知设置、归档项目和删除项目。
+- 项目名称支持进入编辑、保存并恢复原值。
+- 项目概况不存在额外的成员加入机制字段。
+- 交互过程中未出现页面错误覆盖层或未捕获运行时异常。
 
-## Findings
+**Follow-up Polish**
 
-No actionable P0, P1 or P2 mismatch remains.
+- 通知、归档和删除仍属于低频原型入口，后续接入真实业务时补充对应确认流程。
 
-- [P3] At narrower desktop widths the optional session-member rail is hidden.
-  - Location: 会话页右侧辅助栏.
-  - Evidence: the main hierarchy and session interaction remain available; only secondary participant/resource context collapses.
-  - Impact: none on the source-defined primary flow.
-  - Follow-up: retain as intentional responsive behavior unless a permanently visible participant rail is later required.
-
-## Interaction verification
-
-- Opened a project from the project list; defaulted to 「会话」.
-- Switched from a project group chat to an independent Agent conversation.
-- Verified the independent-conversation composer and project-scoped participant identity.
-- Opened 「自动化任务」 and toggled a paused task to enabled.
-- Opened 「项目概况」 and verified all source branches.
-- Browser console warnings/errors checked: none.
-- Production build: passed.
-
-## Comparison history
-
-- Initial implementation pass:
-  - Replaced the former 「协作 / 工作 / 资料」 hierarchy.
-  - Added project group chats plus independent conversations.
-  - Added project-scoped automation cards and enable state.
-  - Moved project configuration, collaborators, permissions, dynamics and outputs into 「项目概况」.
-- Post-fix visual evidence:
-  - `project-sessions-ia-v4.png`
-  - `project-overview-ia-v4.png`
-- No P0/P1/P2 visual issue was found after the first browser-rendered comparison, so no additional blocking iteration was required.
-
-## Implementation checklist
-
-- [x] 项目列表与单字段创建流程
-- [x] 会话为默认主页
-- [x] 项目群聊与多个独立对话
-- [x] 项目自动化任务创建、筛选和启停
-- [x] project.md、技能、资料/信息源和工具
-- [x] Agent、成员、权限、项目动态和产出
-- [x] 浏览器交互、控制台与生产构建
+**Final result**
 
 final result: passed
