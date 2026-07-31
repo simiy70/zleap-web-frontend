@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import AssistantPage from './pages/AssistantPage.jsx';
 import DesktopPage from './pages/DesktopPage.jsx';
-import TaskPage from './pages/TaskPage.jsx';
+import ProjectPage from './pages/ProjectPage.jsx';
 import { PageShell, GlassHeader, GlassDock, CardPagination } from './components/shell';
 import { Button as UIButton } from './components/ui/button';
 import FeedPage from './pages/FeedPage.jsx';
@@ -11535,21 +11535,22 @@ function App() {
   const [sourcesInitialNav, setSourcesInitialNav] = useState(null);
   const [sourcesInitialDetail, setSourcesInitialDetail] = useState(null);
   const navigate = (page, payload) => {
-    if (["desktop", "sources", "assistant", "tasks", "feed", "members"].includes(page)) {
-      if (page === "assistant") {
+    const normalizedPage = page === "assistant" ? "agents" : page === "tasks" ? "projects" : page;
+    if (["desktop", "sources", "agents", "projects", "feed", "members"].includes(normalizedPage)) {
+      if (normalizedPage === "agents") {
         setAssistantPrompt(payload?.prompt || "");
         setAssistantChat(payload?.chat || "");
       }
-      if (page === "feed") setFeedInitialView(payload?.view || null);
-      if (page === "sources") setSourcesInitialNav(payload?.navPage || null);
-      if (page === "sources") setSourcesInitialDetail(payload?.detailName || null);
-      setPrimaryPage(page);
+      if (normalizedPage === "feed") setFeedInitialView(payload?.view || null);
+      if (normalizedPage === "sources") setSourcesInitialNav(payload?.navPage || null);
+      if (normalizedPage === "sources") setSourcesInitialDetail(payload?.detailName || null);
+      setPrimaryPage(normalizedPage);
     }
   };
 
   if (primaryPage === "desktop") return <DesktopPage onNavigate={navigate} />;
-  if (primaryPage === "assistant") return <AssistantPage onNavigate={navigate} initialPrompt={assistantPrompt} initialChat={assistantChat} />;
-  if (primaryPage === "tasks") return <TaskPage onNavigate={navigate} />;
+  if (primaryPage === "agents") return <AssistantPage onNavigate={navigate} initialPrompt={assistantPrompt} initialChat={assistantChat} />;
+  if (primaryPage === "projects") return <ProjectPage onNavigate={navigate} />;
   if (primaryPage === "feed") return <FeedPage onNavigate={navigate} initialView={feedInitialView} />;
   if (primaryPage === "members") return <MemberPage onNavigate={navigate} />;
   return <InfoSourcePage onNavigate={navigate} initialNavPage={sourcesInitialNav} initialDetailName={sourcesInitialDetail} />;

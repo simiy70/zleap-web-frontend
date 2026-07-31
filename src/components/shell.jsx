@@ -56,7 +56,7 @@ export function GlassHeader({ user = 'Zhang Wei' }) {
   </header>;
 }
 
-/* ── 卡片网格中的「新建」虚线卡片（信息源/助手/任务 统一样式） ── */
+/* ── 卡片网格中的「新建」虚线卡片（信息源/Agent/项目统一样式） ── */
 export function NewItemCard({ label, onClick, className }) {
   return <button onClick={onClick}
     className={cn('group flex min-h-[168px] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/90 bg-white/40 text-muted-foreground/50 backdrop-blur transition-all hover:border-orange-300 hover:bg-orange-50/30 hover:text-orange-400', className)}>
@@ -65,7 +65,7 @@ export function NewItemCard({ label, onClick, className }) {
   </button>;
 }
 
-/* ── 卡片视图分页器（信息源/助手/任务统一样式） ── */
+/* ── 卡片视图分页器（信息源/Agent/项目统一样式） ── */
 export function CardPagination({ page, totalPages, totalItems, onPageChange, className }) {
   const safeTotalPages = Math.max(1, totalPages);
   const pages = Array.from({ length: safeTotalPages }, (_, index) => index + 1);
@@ -91,8 +91,8 @@ const dockGroups = [
   [ /* 管理 */
     ['desktop', '桌面', 'ri-home-5-line', 'bg-orange-100', 'text-orange-500'],
     ['sources', '信息源', 'ri-database-2-line', 'bg-violet-100', 'text-violet-600'],
-    ['assistant', '助手', 'ri-chat-smile-2-line', 'bg-emerald-100', 'text-emerald-600'],
-    ['tasks', '任务', 'ri-task-line', 'bg-blue-100', 'text-blue-600'],
+    ['agents', 'Agent', 'ri-chat-smile-2-line', 'bg-emerald-100', 'text-emerald-600'],
+    ['projects', '项目', 'ri-folder-shield-2-line', 'bg-blue-100', 'text-blue-600'],
     ['members', '成员管理', 'ri-team-line', 'bg-cyan-100', 'text-cyan-600'],
   ],
   [ /* 消费 */

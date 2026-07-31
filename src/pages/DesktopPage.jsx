@@ -120,7 +120,7 @@ function TaskCard({ onNavigate }) {
   const mounted = useMounted();
   const running = 8, paused = 4, total = 12;
   const R = 46, C = 2 * Math.PI * R;
-  return <CardShell icon="ri-checkbox-line" title="Agent工作台" action="全部任务" onAction={() => onNavigate('tasks')}>
+  return <CardShell icon="ri-checkbox-line" title="Agent 自动化" action="全部任务" onAction={() => onNavigate('agents')}>
     <div className="flex items-center gap-6 px-5 pb-1">
       <div className="relative h-[112px] w-[112px] shrink-0">
         <svg viewBox="0 0 112 112" className="h-full w-full -rotate-90">
@@ -148,7 +148,7 @@ function TaskCard({ onNavigate }) {
     </div>
     <div className="px-5 pb-2 pt-4 text-sm font-semibold">最近运行任务</div>
     <div className="space-y-2.5 px-5 pb-5">
-      {recentTasks.map(task => <button key={task.name} onClick={() => onNavigate('tasks')} className="flex w-full items-center gap-3 rounded-xl border border-border/40 bg-white/60 px-4 py-2.5 text-left transition hover:border-primary/30 hover:bg-white/90">
+      {recentTasks.map(task => <button key={task.name} onClick={() => onNavigate('agents')} className="flex w-full items-center gap-3 rounded-xl border border-border/40 bg-white/60 px-4 py-2.5 text-left transition hover:border-primary/30 hover:bg-white/90">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white ${task.tone}`}><i className={task.icon} /></span>
         <strong className="min-w-0 flex-1 truncate text-sm">{task.name}</strong>
         <Badge variant={task.variant} className="shrink-0 px-2 text-[10px] font-normal">{task.status}</Badge>
@@ -228,8 +228,8 @@ function InsightEventDialog({ event, onClose }) {
 
 function AgentListCard({ onNavigate, agents, onCreateAgent }) {
   const ranked = [...agents].sort((a, b) => b.posts - a.posts);
-  const openChat = name => onNavigate('assistant', { chat: name });
-  return <CardShell icon="ri-robot-2-line" title="我的 Agent" action="管理 Agent" onAction={() => onNavigate('assistant')}>
+  const openChat = name => onNavigate('agents', { chat: name });
+  return <CardShell icon="ri-robot-2-line" title="我的 Agent" action="打开 Agent 中心" onAction={() => onNavigate('agents')}>
     <div className="mx-5 mb-3 overflow-hidden rounded-xl border border-border/60 bg-white/55">
       {ranked.map(a => <div key={a.name} onClick={() => openChat(a.name)} role="button" tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter') openChat(a.name); }}
