@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:smoke": "node --test tests/build-smoke.test.mjs",
+    "verify": "npm run build && npm run test:smoke"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
