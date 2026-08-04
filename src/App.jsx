@@ -11571,7 +11571,7 @@ function AppContent() {
   else if (primaryPage === "members") page = <MemberPage onNavigate={navigate} />;
   else page = <InfoSourcePage onNavigate={navigate} initialNavPage={sourcesInitialNav} initialDetailName={sourcesInitialDetail} />;
 
-  const floatingVisible = ['desktop', 'feed', 'sources'].includes(primaryPage)
+  const floatingVisible = ['feed', 'sources'].includes(primaryPage)
     || (primaryPage === 'agents' && assistantAgentId !== SUPER_AGENT_ID);
 
   return <>

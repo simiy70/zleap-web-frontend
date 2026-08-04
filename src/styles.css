@@ -33,6 +33,17 @@ html, body, #root { min-height: 100%; }
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif; color: hsl(var(--foreground)); }
 button, input, textarea, select { font: inherit; }
 
+/* Remix Icon 的字体规则先加载，再由这里统一补齐图标盒尺寸，避免图标在 flex 按钮中被压缩为 0。 */
+i[class^="ri-"], i[class*=" ri-"] {
+  display: inline-flex;
+  min-width: 1em;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+i[class^="ri-"]::before, i[class*=" ri-"]::before { display: block; }
+
 /* ── 磨玻璃 ── */
 .glass {
   background: rgba(255, 255, 255, 0.58);

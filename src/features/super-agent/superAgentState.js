@@ -12,6 +12,8 @@ export const contextSuggestions = context => {
   return generalSuggestions;
 };
 
+export const getSuperAgentSuggestions = context => contextSuggestions(context).slice(0, 3);
+
 export const createInitialSuperAgentState = () => ({
   agent: {
     id: SUPER_AGENT_ID,

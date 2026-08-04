@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
-import { contextSuggestions, createInitialSuperAgentState, SUPER_AGENT_ID, superAgentReducer } from './superAgentState';
+import { createInitialSuperAgentState, getSuperAgentSuggestions, SUPER_AGENT_ID, superAgentReducer } from './superAgentState';
 
 const SuperAgentContext = createContext(null);
 
@@ -159,7 +159,7 @@ export function SuperAgentProvider({ children }) {
   const value = useMemo(() => ({
     ...state,
     visibleContext,
-    suggestions: contextSuggestions(visibleContext),
+    suggestions: getSuperAgentSuggestions(visibleContext),
     setPageContext,
     openOverlay,
     closeOverlay,

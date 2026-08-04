@@ -25,26 +25,26 @@ function TaskResultCard({ message, onOpen }) {
   </div>;
 }
 
-function ReplySuggestions({ items, onSelect }) {
+function ReplySuggestions({ items, onSelect, accent = 'orange' }) {
   return <div className="mt-2 space-y-1.5 text-left" aria-label="推荐问题">
-    {items.map(item => <button key={item} onClick={() => onSelect(item)} className="flex w-full items-center gap-2 rounded-xl bg-neutral-100 px-3 py-2 text-left text-xs text-neutral-600 transition hover:bg-orange-50 hover:text-orange-700"><i className="ri-arrow-right-s-line shrink-0 text-neutral-400" /><span>{item}</span></button>)}
+    {items.slice(0, 3).map(item => <button key={item} onClick={() => onSelect(item)} className={`flex w-full items-center gap-2 rounded-xl bg-neutral-100 px-3 py-2 text-left text-xs text-neutral-600 transition ${accent === 'blue' ? 'hover:bg-blue-50 hover:text-blue-700' : 'hover:bg-orange-50 hover:text-orange-700'}`}><i className="ri-arrow-right-s-line shrink-0 text-neutral-400" /><span>{item}</span></button>)}
   </div>;
 }
 
-function MessageBubble({ message, onOpenSources, onRetry, onOpenReport, onOpenTask, suggestions, onSelectSuggestion }) {
+function MessageBubble({ message, onOpenSources, onRetry, onOpenReport, onOpenTask, suggestions, onSelectSuggestion, accent = 'orange' }) {
   if (message.type === 'topic-start') return <div className="py-3"><div className="flex items-center gap-3 text-[11px] text-neutral-400 before:h-px before:flex-1 before:bg-neutral-200 after:h-px after:flex-1 after:bg-neutral-200">新话题</div><div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-neutral-700 ring-1 ring-neutral-200/70">{message.text}</div></div>;
   if (message.type === 'system' || message.type === 'task-submitting') return <div className="flex items-center justify-center gap-2 py-1 text-xs text-neutral-400">{message.type === 'task-submitting' && <i className="ri-loader-4-line animate-spin" />}{message.text}</div>;
   const isUser = message.role === 'user';
   return <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
     <div className={`max-w-[86%] ${isUser ? 'text-right' : ''}`}>
-      <div className={`rounded-2xl px-4 py-3 text-left text-sm leading-6 ${isUser ? 'rounded-br-md bg-orange-500 text-white' : message.type === 'error' || message.type === 'task-error' ? 'rounded-bl-md bg-rose-50 text-rose-700 ring-1 ring-rose-100' : 'rounded-bl-md bg-white text-neutral-700 ring-1 ring-neutral-200/70'}`}>
+      <div className={`rounded-2xl px-4 py-3 text-left text-sm leading-6 ${isUser ? `rounded-br-md text-white ${accent === 'blue' ? 'bg-blue-600' : 'bg-orange-500'}` : message.type === 'error' || message.type === 'task-error' ? 'rounded-bl-md bg-rose-50 text-rose-700 ring-1 ring-rose-100' : 'rounded-bl-md bg-white text-neutral-700 ring-1 ring-neutral-200/70'}`}>
         {message.text}
         {message.type === 'report' && <ReportCard message={message} onOpen={onOpenReport} />}
         {message.type === 'task-result' && <TaskResultCard message={message} onOpen={onOpenTask} />}
         {(message.type === 'error' || message.type === 'task-error') && <button onClick={() => onRetry(message)} className="ml-2 rounded-lg bg-white px-2 py-1 text-xs font-medium text-rose-600 ring-1 ring-rose-100">{message.type === 'task-error' ? '再次创建' : '重试'}</button>}
       </div>
       {!isUser && message.sources?.length > 0 && <button onClick={() => onOpenSources(message.id)} className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-orange-600"><i className="ri-links-line" />{message.sources.length} 条来源 · {message.time}</button>}
-      {!isUser && suggestions?.length > 0 && <ReplySuggestions items={suggestions} onSelect={onSelectSuggestion} />}
+      {!isUser && suggestions?.length > 0 && <ReplySuggestions items={suggestions} onSelect={onSelectSuggestion} accent={accent} />}
       {isUser && message.context && <div className="mt-1 text-[10px] text-neutral-300">引用：{message.context.title}</div>}
       <div className={`mt-1 text-[10px] text-neutral-300 ${isUser ? 'text-right' : ''}`}>{message.time}</div>
     </div>
@@ -100,7 +100,7 @@ export function SuperAgentOverlay({ visible, onOpenDetail, onOpenReport, onOpenT
   const pickerVisible = ['materials', 'agent'].includes(agent.automationDraft?.step);
   const lastReplyId = [...agent.messages].reverse().find(message => message.role !== 'user' && !['system', 'task-submitting', 'topic-start'].includes(message.type))?.id;
   return <aside className="fixed bottom-20 right-3 top-16 z-40 flex w-[min(430px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl bg-neutral-50 shadow-2xl ring-1 ring-neutral-200 max-sm:inset-x-2 max-sm:bottom-20 max-sm:top-16 max-sm:w-auto">
-    <header className="flex items-center gap-3 border-b border-neutral-200/70 bg-white px-4 py-3"><AgentMark size="sm" avatar={agent.agent.avatar} tone={agent.agent.avatarTone} /><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold">{agent.agent.name}</h2><div className="text-[10px] text-emerald-600">在线 · 私密</div></div><button onClick={onOpenDetail} title="消息详情" aria-label="打开消息详情" className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100"><i className="ri-fullscreen-line" /></button><button onClick={agent.closeOverlay} title="关闭" aria-label="关闭悬浮会话" className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100"><i className="ri-close-line text-xl" /></button></header>
+    <header className="flex items-center gap-3 border-b border-neutral-200/70 bg-white px-4 py-3"><AgentMark size="sm" avatar={agent.agent.avatar} tone={agent.agent.avatarTone} /><h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{agent.agent.name}</h2><button onClick={onOpenDetail} title="消息详情" aria-label="打开消息详情" className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100"><i className="ri-fullscreen-line" /></button><button onClick={agent.closeOverlay} title="关闭" aria-label="关闭悬浮会话" className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100"><i className="ri-close-line text-xl" /></button></header>
     <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
       <div className="rounded-2xl bg-gradient-to-br from-orange-50 to-sky-50 p-4"><h3 className="font-semibold text-neutral-800">你好，我是 Super Agent</h3><p className="mt-1 text-xs leading-5 text-neutral-500">可以总结信息、解释洞察、提炼要点，也可以根据明确行动结论生成任务。</p></div>
       {agent.messages.map(message => <MessageBubble key={message.id} message={message} onOpenSources={agent.openSources} onRetry={message.type === 'task-error' ? () => agent.startAutomationFlow('任务创建失败') : agent.retryMessage} onOpenReport={onOpenReport} onOpenTask={onOpenTask} suggestions={message.id === lastReplyId && !agent.pendingMessageId ? agent.suggestions : []} onSelectSuggestion={agent.sendMessage} />)}
@@ -110,6 +110,42 @@ export function SuperAgentOverlay({ visible, onOpenDetail, onOpenReport, onOpenT
       {agent.visibleContext ? <div className="mb-2 flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2 text-xs text-orange-700"><i className="ri-links-line" /><span className="min-w-0 flex-1 truncate">{agent.visibleContext.title}</span><button onClick={agent.closeContext} aria-label="关闭页面引用"><i className="ri-close-line" /></button></div> : agent.pageContext?.unavailableReason ? <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">{agent.pageContext.unavailableReason}</div> : null}
       <div className="mb-2"><button onClick={agent.startNewTopic} className="rounded-full bg-neutral-100 px-3 py-1.5 text-[11px] text-neutral-600">+ 开启新话题</button></div>
       <div className="flex items-center gap-2"><Input value={draft} onChange={event => { setLocalDraft(event.target.value); agent.setDraft(event.target.value); }} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) send(); }} placeholder="问 Super Agent…" disabled={Boolean(agent.pendingMessageId)} />{agent.pendingMessageId ? <Button size="icon" variant="outline" onClick={agent.stopGeneration} aria-label="停止生成"><i className="ri-stop-fill" /></Button> : <Button size="icon" onClick={send} disabled={!draft.trim()} aria-label="发送"><i className="ri-send-plane-2-line" /></Button>}</div>
+    </div>}
+    {agent.automationDraft?.step === 'materials' && <MaterialsPicker draft={agent.automationDraft} onChange={agent.updateAutomationDraft} onCancel={agent.cancelAutomation} onConfirm={agent.confirmMaterials} />}
+    {agent.automationDraft?.step === 'agent' && <AgentPicker draft={agent.automationDraft} onChange={agent.updateAutomationDraft} onCancel={agent.cancelAutomation} onConfirm={agent.submitAutomation} />}
+    <SourceSheet messageId={agent.sourceSheetMessageId} expandedIds={agent.expandedSourceIds} onToggle={agent.toggleSource} onClose={agent.closeSources} />
+  </aside>;
+}
+
+export function DesktopSuperAgentDock({ open, onToggle, onOpenDetail, onOpenReport, onOpenTask }) {
+  const agent = useSuperAgent();
+  const listRef = useRef(null);
+  const [draft, setLocalDraft] = useState(agent.draft);
+  useEffect(() => { agent.clearUnread(); }, []);
+  useEffect(() => { setLocalDraft(agent.draft); }, [agent.draft]);
+  useEffect(() => {
+    if (open) listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+  }, [agent.messages, agent.pendingMessageId, agent.automationDraft?.step, open]);
+  const send = () => {
+    const text = draft.trim();
+    if (!text) return;
+    agent.sendMessage(text);
+    setLocalDraft('');
+  };
+  if (!open) return <button onClick={onToggle} aria-label={`展开 ${agent.agent.name}`} className="group fixed right-5 top-1/2 z-30 -translate-y-1/2"><span className="glass-strong flex h-14 w-14 items-center justify-center rounded-full p-1.5 shadow-xl shadow-blue-500/15 transition group-hover:scale-105"><span className="relative flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-sky-400 text-xl text-white"><i className="ri-sparkling-2-line" />{agent.unread && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white" />}</span></span></button>;
+  const pickerVisible = ['materials', 'agent'].includes(agent.automationDraft?.step);
+  const lastReplyId = [...agent.messages].reverse().find(message => message.role !== 'user' && !['system', 'task-submitting', 'topic-start'].includes(message.type))?.id;
+  return <aside className="glass-strong fixed bottom-24 right-4 top-[72px] z-30 flex w-[min(360px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl shadow-2xl shadow-blue-950/10 max-sm:inset-x-2 max-sm:w-auto">
+    <header className="flex items-center gap-3 border-b border-blue-100/70 bg-gradient-to-r from-blue-50/90 to-sky-50/80 px-4 py-3"><AgentMark size="sm" avatar={agent.agent.avatar} tone="from-blue-600 to-sky-400" /><h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{agent.agent.name}</h2><button onClick={onOpenDetail} aria-label="打开消息详情" title="消息详情" className="flex h-8 w-8 items-center justify-center rounded-lg text-blue-500 hover:bg-white/80"><i className="ri-fullscreen-line" /></button><button onClick={onToggle} aria-label="收起桌面 Super Agent" title="收起" className="flex h-8 w-8 items-center justify-center rounded-lg text-blue-500 hover:bg-white/80"><i className="ri-contract-right-line" /></button></header>
+    <div ref={listRef} className="scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-sky-400 p-4 text-white shadow-lg shadow-blue-500/15"><h3 className="font-semibold">你好，我是 Super Agent</h3><p className="mt-1 text-xs leading-5 text-blue-50">可以总结桌面信息、解释洞察，也可以把明确行动转成自动化任务。</p></div>
+      {agent.messages.map(message => <MessageBubble key={message.id} message={message} onOpenSources={agent.openSources} onRetry={message.type === 'task-error' ? () => agent.startAutomationFlow('任务创建失败') : agent.retryMessage} onOpenReport={onOpenReport} onOpenTask={onOpenTask} suggestions={message.id === lastReplyId && !agent.pendingMessageId ? agent.suggestions : []} onSelectSuggestion={agent.sendMessage} accent="blue" />)}
+      {agent.pendingMessageId && <div className="flex justify-start"><div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white px-4 py-3 ring-1 ring-blue-100">{[0, 1, 2].map(index => <span key={index} className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" style={{ animationDelay: `${index * 150}ms` }} />)}<span className="ml-2 text-xs text-neutral-400">对方输入中</span></div></div>}
+    </div>
+    {!pickerVisible && <div className="border-t border-blue-100/70 bg-white/90 p-3">
+      {agent.visibleContext && <div className="mb-2 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-700"><i className="ri-links-line" /><span className="min-w-0 flex-1 truncate">{agent.visibleContext.title}</span><button onClick={agent.closeContext} aria-label="关闭页面引用"><i className="ri-close-line" /></button></div>}
+      <div className="mb-2"><button onClick={agent.startNewTopic} className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] text-slate-600">+ 开启新话题</button></div>
+      <div className="flex items-center gap-2"><Input value={draft} onChange={event => { setLocalDraft(event.target.value); agent.setDraft(event.target.value); }} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) send(); }} placeholder="布置任务或提问…" disabled={Boolean(agent.pendingMessageId)} className="rounded-full border-blue-100 focus-visible:ring-blue-300" />{agent.pendingMessageId ? <Button size="icon" variant="outline" onClick={agent.stopGeneration} aria-label="停止生成" className="rounded-full"><i className="ri-stop-fill" /></Button> : <Button size="icon" onClick={send} disabled={!draft.trim()} aria-label="发送" className="rounded-full bg-blue-600 hover:bg-blue-700"><i className="ri-arrow-up-line" /></Button>}</div>
     </div>}
     {agent.automationDraft?.step === 'materials' && <MaterialsPicker draft={agent.automationDraft} onChange={agent.updateAutomationDraft} onCancel={agent.cancelAutomation} onConfirm={agent.confirmMaterials} />}
     {agent.automationDraft?.step === 'agent' && <AgentPicker draft={agent.automationDraft} onChange={agent.updateAutomationDraft} onCancel={agent.cancelAutomation} onConfirm={agent.submitAutomation} />}

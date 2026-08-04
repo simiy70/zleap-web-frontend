@@ -3,10 +3,16 @@ import test from 'node:test';
 import {
   canDeleteAgent,
   createInitialSuperAgentState,
+  getSuperAgentSuggestions,
   SUPER_AGENT_ID,
   superAgentReducer,
   uniqueSuperAgentCount,
 } from '../src/features/super-agent/superAgentState.js';
+
+test('Super Agent recommendations never exceed three items', () => {
+  const suggestions = getSuperAgentSuggestions({ kind: 'list', entityType: 'desktop' });
+  assert.equal(suggestions.length, 3);
+});
 
 test('opening the floating conversation clears unread and restores context recognition', () => {
   let state = createInitialSuperAgentState();
