@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageShell, GlassHeader, GlassDock } from '../components/shell';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -10,6 +10,9 @@ import {
   ExternalAgentPage,
   ZleapCreatePage,
 } from '../components/assistant/AssistantCreation';
+import { useSuperAgent, useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
+import { SuperAgentDetail } from '../features/super-agent/SuperAgentDetail';
+import { SUPER_AGENT_ID } from '../features/super-agent/superAgentState';
 
 const now = Date.now();
 const baseAgents = [
@@ -202,10 +205,27 @@ function AgentContactMeta({ agent, taskCount, sessionCount }) {
   return <div className="mt-4 flex items-center gap-4 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400"><span><i className="ri-rss-line mr-1" />关注中</span><span>{(dynamics[agent.id] || []).length} 条近期动态</span></div>;
 }
 
-export default function AssistantPage({ onNavigate, initialChat = '' }) {
+export default function AssistantPage({ onNavigate, initialChat = '', initialAgentId = '', initialTaskId = '' }) {
+  const superStore = useSuperAgent();
+  const superContact = useMemo(() => ({
+    id: SUPER_AGENT_ID,
+    name: superStore.agent.name,
+    emoji: superStore.agent.avatar,
+    source: 'system',
+    sessionMode: 'single',
+    labels: ['可对话', '我创建的'],
+    desc: '全局信息整理、上下文问答与自动化任务协调。',
+    followed: true,
+    owned: true,
+    status: '在线',
+    skills: ['上下文理解', '信息总结', '任务编排'],
+    tools: ['信息源', '自动化任务'],
+    sources: ['全部可访问的信息源'],
+    isSuperAgent: true,
+  }), [superStore.agent]);
   const [agents, setAgents] = useState(baseAgents);
   const [centerView, setCenterView] = useState('messages');
-  const [activeAgentId, setActiveAgentId] = useState(() => baseAgents.find(agent => agent.name === initialChat)?.id || 'feishu');
+  const [activeAgentId, setActiveAgentId] = useState(() => initialAgentId || baseAgents.find(agent => agent.name === initialChat)?.id || 'feishu');
   const [agentTab, setAgentTab] = useState('messages');
   const [tasks, setTasks] = useState(initialTasks);
   const [sessions, setSessions] = useState(initialSessions);
@@ -218,17 +238,26 @@ export default function AssistantPage({ onNavigate, initialChat = '' }) {
   const [recruitType, setRecruitType] = useState('all');
   const [automationDraft, setAutomationDraft] = useState(null);
   const [createModal, setCreateModal] = useState(null);
-  const activeAgent = agents.find(agent => agent.id === activeAgentId) || agents[0];
+  const activeAgent = activeAgentId === SUPER_AGENT_ID ? superContact : (agents.find(agent => agent.id === activeAgentId) || agents[0]);
   const activeSessionId = activeSessionByAgent[activeAgent.id] || sessions[activeAgent.id]?.find(item => !item.archived)?.id;
-  const contactAgents = agents.filter(agent => agent.labels.includes('可对话'));
-  const filteredContacts = agents.filter(agent => `${agent.name}${agent.desc}${agent.labels.join('')}`.toLowerCase().includes(query.trim().toLowerCase()) && (contactType === 'all' || agentCategory(agent) === contactType));
+  const contactAgents = [superContact, ...agents.filter(agent => agent.labels.includes('可对话'))];
+  const filteredContacts = [superContact, ...agents].filter(agent => `${agent.name}${agent.desc}${agent.labels.join('')}`.toLowerCase().includes(query.trim().toLowerCase()) && (contactType === 'all' || agentCategory(agent) === contactType));
   const filteredTasks = tasks.filter(task => {
     const taskOwner = agents.find(agent => agent.id === task.agentId);
     return (taskStatus === 'all' || (taskStatus === 'running') === task.enabled) && (!taskAgentQuery.trim() || taskOwner?.name.toLowerCase().includes(taskAgentQuery.trim().toLowerCase()));
   });
-  const openAgent = (id, tab = 'messages') => { setActiveAgentId(id); setAgentTab(tab); setCenterView('messages'); };
+  useEffect(() => { if (initialAgentId) setActiveAgentId(initialAgentId); }, [initialAgentId]);
+  useSuperAgentPageContext(centerView === 'messages' && activeAgent.id !== SUPER_AGENT_ID
+    ? { kind: 'entity', entityType: 'agent', entityId: activeAgent.id, title: activeAgent.name }
+    : { kind: 'none' });
+  const openAgent = (id, tab = 'messages') => { setActiveAgentId(id); setAgentTab(tab); setCenterView('messages'); onNavigate?.('agents', { agentId: id }); };
   const appendMessage = (sessionId, role, text, extra = {}) => setMessages(previous => ({ ...previous, [sessionId]: [...(previous[sessionId] || []), { id: Date.now() + Math.random(), role, text, time: '刚刚', ...extra }] }));
   const startAutomationGuide = agentId => {
+    if (agentId === SUPER_AGENT_ID) {
+      openAgent(SUPER_AGENT_ID);
+      superStore.startAutomationFlow();
+      return;
+    }
     const agent = agents.find(item => item.id === agentId) || contactAgents[0];
     const sessionId = activeSessionByAgent[agent.id] || sessions[agent.id]?.[0]?.id;
     openAgent(agent.id, 'messages');
@@ -288,7 +317,9 @@ export default function AssistantPage({ onNavigate, initialChat = '' }) {
       </div>
       {centerView === 'messages' && <div className="flex min-h-0 flex-1">
         <aside className="w-72 shrink-0 border-r border-neutral-200/70 bg-white p-3"><div className="relative mb-3"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input value={query} onChange={event => setQuery(event.target.value)} className="pl-9" placeholder="搜索 Agent" /></div><div className="space-y-1">{contactAgents.filter(agent => !query || agent.name.toLowerCase().includes(query.toLowerCase())).map(agent => <button key={agent.id} onClick={() => openAgent(agent.id)} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ${activeAgent.id === agent.id ? 'bg-orange-50' : 'hover:bg-neutral-50'}`}><AgentAvatar agent={agent} size="sm" /><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><span className="truncate text-sm font-medium">{agent.name}</span><LocalBadge agent={agent} /></span><span className="mt-1 block truncate text-[11px] text-neutral-400">{agent.desc}</span></span></button>)}</div></aside>
-        <AgentPane agent={activeAgent} tab={agentTab} onTabChange={setAgentTab} sessions={sessions[activeAgent.id] || []} activeSessionId={activeSessionId} onSessionChange={id => setActiveSessionByAgent(previous => ({ ...previous, [activeAgent.id]: id }))} messages={messages} tasks={tasks} automationDraft={automationDraft} onDraftChange={change => setAutomationDraft(previous => ({ ...previous, ...change }))} onConfirmDraft={confirmDraft} onCancelDraft={() => { appendMessage(activeSessionId, 'agent', '好的，这次不会创建任务。'); setAutomationDraft(null); }} onSend={sendMessage} onToggleTask={id => setTasks(previous => previous.map(task => task.id === id ? { ...task, enabled: !task.enabled } : task))} onCreateTask={() => startAutomationGuide(activeAgent.id)} onFollow={() => setAgents(previous => previous.map(agent => agent.id === activeAgent.id ? { ...agent, followed: !agent.followed } : agent))} onCreateSession={createSession} onRenameSession={renameSession} onArchiveSession={id => removeSession(id, true)} onDeleteSession={id => removeSession(id, false)} />
+        {activeAgent.id === SUPER_AGENT_ID
+          ? <SuperAgentDetail initialTaskId={initialTaskId} onOpenReport={() => onNavigate('sources', { navPage: 'report' })} />
+          : <AgentPane agent={activeAgent} tab={agentTab} onTabChange={setAgentTab} sessions={sessions[activeAgent.id] || []} activeSessionId={activeSessionId} onSessionChange={id => setActiveSessionByAgent(previous => ({ ...previous, [activeAgent.id]: id }))} messages={messages} tasks={tasks} automationDraft={automationDraft} onDraftChange={change => setAutomationDraft(previous => ({ ...previous, ...change }))} onConfirmDraft={confirmDraft} onCancelDraft={() => { appendMessage(activeSessionId, 'agent', '好的，这次不会创建任务。'); setAutomationDraft(null); }} onSend={sendMessage} onToggleTask={id => setTasks(previous => previous.map(task => task.id === id ? { ...task, enabled: !task.enabled } : task))} onCreateTask={() => startAutomationGuide(activeAgent.id)} onFollow={() => setAgents(previous => previous.map(agent => agent.id === activeAgent.id ? { ...agent, followed: !agent.followed } : agent))} onCreateSession={createSession} onRenameSession={renameSession} onArchiveSession={id => removeSession(id, true)} onDeleteSession={id => removeSession(id, false)} />}
       </div>}
       {centerView === 'contacts' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1000px]"><div className="mb-5 flex max-w-2xl gap-3"><div className="relative min-w-0 flex-1"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input value={query} onChange={event => setQuery(event.target.value)} className="pl-9" placeholder="搜索联系人" /></div><select value={contactType} onChange={event => setContactType(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部类型</option><option value="official">官方 Agent</option><option value="created">我创建的</option><option value="local">本地 Agent</option><option value="following">关注中</option></select></div><div className="grid gap-4 md:grid-cols-2">{filteredContacts.map(agent => <button key={agent.id} onClick={() => openAgent(agent.id)} className="rounded-2xl bg-white p-5 text-left ring-1 ring-neutral-200/70 transition hover:-translate-y-0.5 hover:ring-orange-200"><div className="flex gap-3"><AgentAvatar agent={agent} /><div className="min-w-0 flex-1"><div className="flex items-center gap-2 font-semibold">{agent.name}<LocalBadge agent={agent} /><span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-normal text-neutral-500">{agentCategory(agent) === 'official' ? '官方' : agentCategory(agent) === 'created' ? '我创建的' : agentCategory(agent) === 'local' ? '本地接入' : '关注中'}</span></div><p className="mt-1 line-clamp-2 text-sm text-neutral-400">{agent.desc}</p></div></div><AgentContactMeta agent={agent} taskCount={tasks.filter(task => task.agentId === agent.id).length} sessionCount={(sessions[agent.id] || []).filter(session => !session.archived).length} /></button>)}</div>{!filteredContacts.length && <div className="rounded-2xl bg-white py-12 text-center text-sm text-neutral-400 ring-1 ring-neutral-200/70">没有符合条件的 Agent</div>}</div></div>}
       {centerView === 'automation' && <div className="flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-[1050px]"><div className="mb-5 flex flex-wrap items-center gap-3"><select value={taskStatus} onChange={event => setTaskStatus(event.target.value)} className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm"><option value="all">全部状态</option><option value="running">正常执行</option><option value="paused">暂停</option></select><div className="relative w-64"><i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" /><Input list="automation-agent-options" value={taskAgentQuery} onChange={event => setTaskAgentQuery(event.target.value)} className="pl-9" placeholder="搜索 Agent" /><datalist id="automation-agent-options">{contactAgents.map(agent => <option value={agent.name} key={agent.id} />)}</datalist></div><Button className="ml-auto" onClick={() => { const matched = contactAgents.find(agent => agent.name.toLowerCase().includes(taskAgentQuery.trim().toLowerCase())); startAutomationGuide(matched?.id || activeAgent.id || contactAgents[0].id); }}><i className="ri-add-line" />创建任务</Button></div><div className="grid gap-4 md:grid-cols-2">{filteredTasks.map(task => { const agent = agents.find(item => item.id === task.agentId); return <TaskCard key={task.id} task={task} agent={agent} onOpen={() => openAgent(agent.id, 'tasks')} onToggle={() => setTasks(previous => previous.map(item => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} />; })}</div>{!filteredTasks.length && <div className="rounded-2xl bg-white py-12 text-center text-sm text-neutral-400 ring-1 ring-neutral-200/70">没有符合条件的自动化任务</div>}</div></div>}

@@ -12,6 +12,7 @@
 
 - Agent 中心与项目空间：[`agent-center-project-space-product-solution.md`](agent-center-project-space-product-solution.md)
 - 助手创建与导入：[`assistant-creation-flow.md`](assistant-creation-flow.md)
+- Super Agent 会话、设置与自动化：[`super-agent-product-requirements.md`](super-agent-product-requirements.md)
 - 信息源模块设计：[`design.md`](../design.md)
 - 视觉验收说明：[`design-qa.md`](../design-qa.md)
 

@@ -6,6 +6,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
 
 const availableAgents = [
   { id: 'feishu', name: '飞书 CLI', emoji: '🤖', source: 'system', skills: ['飞书协作', '会议纪要', '报告生成'], tools: ['飞书日历', '飞书文档'], sources: ['研发周报', '会议记录'] },
@@ -206,6 +207,7 @@ function OverviewView({ project, onUpdate }) {
 }
 
 export default function ProjectPage({ onNavigate }) {
+  useSuperAgentPageContext({ kind: 'none' });
   const [projects, setProjects] = useState(initialProjects);
   const [activeId, setActiveId] = useState(null);
   const [tab, setTab] = useState('sessions');

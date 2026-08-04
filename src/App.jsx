@@ -9,6 +9,9 @@ import MemberPage from './pages/MemberPage.jsx';
 import folderOrange from './assets/folders/folder-orange.png';
 import folderOrangeLocked from './assets/folders/folder-orange-locked.png';
 import folderBlue from './assets/folders/folder-blue.png';
+import { SuperAgentProvider, useSuperAgentPageContext } from './features/super-agent/SuperAgentProvider';
+import { SuperAgentOverlay } from './features/super-agent/SuperAgentOverlay';
+import { SUPER_AGENT_ID } from './features/super-agent/superAgentState';
 
 /* ─── SVG ICONS ─── */
 const Icon = {
@@ -10850,6 +10853,14 @@ function InfoSourcePage({ onNavigate, initialNavPage, initialDetailName }) {
   );
   const [permissionTarget, setPermissionTarget] = useState(null);
   const [currentFolder, setCurrentFolder] = useState(null);
+  const configurationOpen = showAdd || showCreateSource || showConnectorPicker || showNewFolder || showNotePicker || renameItem || moveItem || deleteItem || editConfigItem || permissionTarget != null;
+  useSuperAgentPageContext(configurationOpen
+    ? { kind: 'none' }
+    : detailItem
+      ? { kind: 'entity', entityType: detailItem.kind || 'content', entityId: detailItem.id, title: detailItem.name }
+      : publicDetail
+        ? { kind: 'entity', entityType: 'public-source', entityId: publicDetail.id, title: publicDetail.name }
+        : { kind: 'list', entityType: navPage === 'search' ? 'search' : 'source-list', entityId: navPage, title: navPage === 'search' ? '当前搜索结果' : navPage === 'report' || navPage === 'reports' ? '汇报信息源列表' : '当前信息源列表' });
   const [search, setSearch]               = useState("");
 
   const toggleFolder = (id) => {
@@ -11527,10 +11538,12 @@ function InfoSourcePage({ onNavigate, initialNavPage, initialDetailName }) {
 }
 
 
-function App() {
+function AppContent() {
   const [primaryPage, setPrimaryPage] = useState("desktop");
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [assistantChat, setAssistantChat] = useState("");
+  const [assistantAgentId, setAssistantAgentId] = useState("");
+  const [assistantTaskId, setAssistantTaskId] = useState("");
   const [feedInitialView, setFeedInitialView] = useState(null);
   const [sourcesInitialNav, setSourcesInitialNav] = useState(null);
   const [sourcesInitialDetail, setSourcesInitialDetail] = useState(null);
@@ -11540,6 +11553,8 @@ function App() {
       if (normalizedPage === "agents") {
         setAssistantPrompt(payload?.prompt || "");
         setAssistantChat(payload?.chat || "");
+        setAssistantAgentId(payload?.agentId || "");
+        setAssistantTaskId(payload?.taskId || "");
       }
       if (normalizedPage === "feed") setFeedInitialView(payload?.view || null);
       if (normalizedPage === "sources") setSourcesInitialNav(payload?.navPage || null);
@@ -11548,12 +11563,30 @@ function App() {
     }
   };
 
-  if (primaryPage === "desktop") return <DesktopPage onNavigate={navigate} />;
-  if (primaryPage === "agents") return <AssistantPage onNavigate={navigate} initialPrompt={assistantPrompt} initialChat={assistantChat} />;
-  if (primaryPage === "projects") return <ProjectPage onNavigate={navigate} />;
-  if (primaryPage === "feed") return <FeedPage onNavigate={navigate} initialView={feedInitialView} />;
-  if (primaryPage === "members") return <MemberPage onNavigate={navigate} />;
-  return <InfoSourcePage onNavigate={navigate} initialNavPage={sourcesInitialNav} initialDetailName={sourcesInitialDetail} />;
+  let page;
+  if (primaryPage === "desktop") page = <DesktopPage onNavigate={navigate} />;
+  else if (primaryPage === "agents") page = <AssistantPage onNavigate={navigate} initialPrompt={assistantPrompt} initialChat={assistantChat} initialAgentId={assistantAgentId} initialTaskId={assistantTaskId} />;
+  else if (primaryPage === "projects") page = <ProjectPage onNavigate={navigate} />;
+  else if (primaryPage === "feed") page = <FeedPage onNavigate={navigate} initialView={feedInitialView} />;
+  else if (primaryPage === "members") page = <MemberPage onNavigate={navigate} />;
+  else page = <InfoSourcePage onNavigate={navigate} initialNavPage={sourcesInitialNav} initialDetailName={sourcesInitialDetail} />;
+
+  const floatingVisible = ['desktop', 'feed', 'sources'].includes(primaryPage)
+    || (primaryPage === 'agents' && assistantAgentId !== SUPER_AGENT_ID);
+
+  return <>
+    {page}
+    <SuperAgentOverlay
+      visible={floatingVisible}
+      onOpenDetail={() => navigate('agents', { agentId: SUPER_AGENT_ID })}
+      onOpenReport={() => navigate('sources', { navPage: 'report' })}
+      onOpenTask={taskId => navigate('agents', { agentId: SUPER_AGENT_ID, taskId })}
+    />
+  </>;
+}
+
+function App() {
+  return <SuperAgentProvider><AppContent /></SuperAgentProvider>;
 }
 
 export default App;

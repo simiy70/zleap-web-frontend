@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
 
 /* ─────────────────────────  数据  ───────────────────────── */
 
@@ -458,10 +459,7 @@ function ChatDock({ open, onToggle, messages, onSend, pending }) {
 const cardComponents = { tasks: TaskCard, insights: InsightCard, agents: AgentListCard, sources: SourceStatusCard, moments: MomentsCard };
 
 export default function DesktopPage({ onNavigate }) {
-  const [chatOpen, setChatOpen] = useState(true);
-  const [messages, setMessages] = useState([]);
-  const [pending, setPending] = useState(false);
-  const replyTimer = useRef(null);
+  useSuperAgentPageContext({ kind: 'list', entityType: 'desktop', entityId: 'desktop', title: '当前桌面卡片' });
   const [agents, setAgents] = useState(agentRows);
   const [showCreateAgent, setShowCreateAgent] = useState(false);
   const [momentDetail, setMomentDetail] = useState(null);
@@ -483,22 +481,9 @@ export default function DesktopPage({ onNavigate }) {
     dragIndex.current = null;
   };
 
-  useEffect(() => () => clearTimeout(replyTimer.current), []);
-
-  const sendMessage = text => {
-    setChatOpen(true);
-    setMessages(prev => [...prev, { role: 'user', text }]);
-    setPending(true);
-    clearTimeout(replyTimer.current);
-    replyTimer.current = setTimeout(() => {
-      setPending(false);
-      setMessages(prev => [...prev, { role: 'assistant', text: `已收到「${text}」。我会安排合适的 Agent 处理，执行进度可以在「任务中心」卡片实时查看。` }]);
-    }, 900);
-  };
-
   return <PageShell variant="desktop">
     <GlassHeader user={currentUser} />
-    <main className={`px-8 pb-32 pt-8 transition-all duration-300 ${chatOpen ? 'xl:mr-[384px]' : ''}`}>
+    <main className="px-8 pb-32 pt-8 transition-all duration-300">
       <div className="mx-auto max-w-[1280px]">
         <div className="grid auto-rows-fr grid-cols-1 gap-5 lg:grid-cols-2">
           {cardOrder.map((id, index) => {
@@ -517,7 +502,6 @@ export default function DesktopPage({ onNavigate }) {
         </div>
       </div>
     </main>
-    <ChatDock open={chatOpen} onToggle={() => setChatOpen(v => !v)} messages={messages} onSend={sendMessage} pending={pending} />
     <GlassDock active="desktop" onNavigate={onNavigate} />
     <CreateAgentDialog open={showCreateAgent} onOpenChange={setShowCreateAgent} onCreate={agent => setAgents(prev => [agent, ...prev])} />
     <MomentDetailDialog moment={momentDetail} onClose={() => setMomentDetail(null)} />

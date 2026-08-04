@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/dropdown-menu';
+import { useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
 
 /* ═══ 基础字典（对齐《企业权限管理系统需求文档》v1.9.0） ═══ */
 const STATUS = {
@@ -990,6 +991,7 @@ function ReviewDialog({ open, onOpenChange, reg, depts, onApprove, onReject }) {
 
 /* ═══ 主页面 ═══ */
 export default function MemberPage({ onNavigate }) {
+  useSuperAgentPageContext({ kind: 'none' });
   const [members, setMembers] = useState(initialMembers);
   const [depts, setDepts] = useState(initialDepts);
   const [regs, setRegs] = useState(initialRegs);

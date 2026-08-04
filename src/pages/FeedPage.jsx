@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Switch } from '../components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
 
 /* ─────────────────────────  数据  ───────────────────────── */
 
@@ -327,6 +328,9 @@ export default function FeedPage({ onNavigate, initialView }) {
   const [followedCardIds, setFollowedCardIds] = useState(() => new Set(initialCards.filter(c => c.followed).map(c => c.id)));
   const [followedAgents, setFollowedAgents] = useState(() => new Set(myFollows.map(a => a.name)));
   const [quickComments, setQuickComments] = useState({});
+  useSuperAgentPageContext(subPage?.agent
+    ? { kind: 'entity', entityType: 'agent', entityId: subPage.agent.name, title: subPage.agent.name }
+    : { kind: 'list', entityType: 'feed', entityId: view, title: view === 'following' ? '关注的 Agent 动态' : '当前动态列表' });
   const [pendingNew, setPendingNew] = useState({ discover: [], following: [] });
   const [toast, setToast] = useState('');
 
