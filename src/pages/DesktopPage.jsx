@@ -7,6 +7,9 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { useSuperAgentPageContext } from '../features/super-agent/SuperAgentProvider';
+import { DesktopSuperAgentDock } from '../features/super-agent/SuperAgentOverlay';
+import { SUPER_AGENT_ID } from '../features/super-agent/superAgentState';
 
 /* ─────────────────────────  数据  ───────────────────────── */
 
@@ -87,9 +90,7 @@ const abnormalSources = [
   { name: '竞品价格爬虫', status: '同步失败', variant: 'destructive', time: '2 小时前', desc: '目标页面响应超时，系统将在下一轮自动重试。' },
 ].filter(source => source.status === '同步失败');
 
-const quickPrompts = ['分析小米YU7销量增长原因', '列出当前Agent运行任务', '说明信息源同步失败处理方法'];
 const currentUser = 'Zhang Wei';
-const desktopAssistantName = `${currentUser}的Agent`;
 
 /* 挂载后置 true，用于让图表宽度/弧长从 0 过渡到目标值 */
 function useMounted(delay = 120) {
@@ -392,76 +393,13 @@ function CreateAgentDialog({ open, onOpenChange, onCreate }) {
   </Dialog>;
 }
 
-/* ─────────────────────────  常驻对话侧栏  ───────────────────────── */
-
-function ChatDock({ open, onToggle, messages, onSend, pending }) {
-  const [draft, setDraft] = useState('');
-  const listRef = useRef(null);
-
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, open, pending]);
-
-  const send = () => {
-    const text = draft.trim();
-    if (!text) return;
-    onSend(text);
-    setDraft('');
-  };
-
-  if (!open) {
-    return <button onClick={onToggle} title={`展开${desktopAssistantName}`} aria-label={`展开${desktopAssistantName}`}
-      className="group fixed right-5 top-1/2 z-30 -translate-y-1/2">
-      <span className="glass-strong flex h-14 w-14 items-center justify-center rounded-full p-1.5 shadow-xl shadow-orange-500/10 transition group-hover:scale-105 group-active:scale-95">
-        <span className="relative flex h-full w-full items-center justify-center rounded-full bg-primary text-xl text-primary-foreground ring-1 ring-white/60">
-          <i className="ri-sparkling-2-line" />
-          <span className="breathe absolute -right-1 -top-1 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
-        </span>
-      </span>
-    </button>;
-  }
-
-  return <aside className="glass-strong fixed bottom-24 right-4 top-[72px] z-30 flex w-[352px] flex-col overflow-hidden rounded-3xl shadow-2xl">
-    <header className="flex items-center justify-between border-b border-border/40 px-4 py-3">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"><i className="ri-sparkling-2-line" /></span>
-        <div className="text-sm font-semibold leading-tight">{desktopAssistantName}</div>
-      </div>
-      <Button variant="ghost" size="icon-sm" onClick={onToggle} title="收起" aria-label="收起对话框"><i className="ri-contract-right-line" /></Button>
-    </header>
-
-    <div ref={listRef} className="scrollbar flex-1 overflow-y-auto px-4 py-4">
-      {messages.length === 0 && !pending ? (
-        <div className="flex min-h-full flex-col justify-center px-2 pb-16">
-          <div className="text-[25px] font-bold leading-tight tracking-tight"><span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">{currentUser}，你好</span><br />今天需要我做些什么？</div>
-          <div className="mt-8 flex flex-col items-start gap-2">
-            {quickPrompts.map(text => <button key={text} onClick={() => onSend(text)} className="rounded-full bg-slate-100 px-4 py-2 text-left text-sm text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">{text}</button>)}
-          </div>
-        </div>
-      ) : <div className="space-y-3">
-        {messages.map((m, i) => m.role === 'user'
-          ? <div key={i} className="ml-10 rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">{m.text}</div>
-          : <div key={i} className="mr-6 rounded-2xl rounded-bl-md bg-white/80 px-3.5 py-2.5 text-sm leading-relaxed text-foreground ring-1 ring-border/40">{m.text}</div>)}
-        {pending && <div className="mr-6 flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white/80 px-3.5 py-3 ring-1 ring-border/40">
-          {[0, 1, 2].map(n => <span key={n} className="breathe h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: `${n * 0.2}s` }} />)}
-        </div>}
-      </div>}
-    </div>
-
-    <div className="flex items-center gap-2 border-t border-border/40 p-3">
-      <Input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }} placeholder="布置任务或提问…" className="h-10 rounded-full" />
-      <Button size="icon" className="shrink-0 rounded-full" disabled={!draft.trim()} onClick={send} aria-label="发送"><i className="ri-arrow-up-line" /></Button>
-    </div>
-  </aside>;
-}
-
 /* ─────────────────────────  页面  ───────────────────────── */
 
 const cardComponents = { tasks: TaskCard, insights: InsightCard, agents: AgentListCard, sources: SourceStatusCard, moments: MomentsCard };
 
 export default function DesktopPage({ onNavigate }) {
-  const [chatOpen, setChatOpen] = useState(true);
-  const [messages, setMessages] = useState([]);
-  const [pending, setPending] = useState(false);
-  const replyTimer = useRef(null);
+  useSuperAgentPageContext({ kind: 'list', entityType: 'desktop', entityId: 'desktop', title: '当前桌面卡片' });
+  const [superAgentOpen, setSuperAgentOpen] = useState(true);
   const [agents, setAgents] = useState(agentRows);
   const [showCreateAgent, setShowCreateAgent] = useState(false);
   const [momentDetail, setMomentDetail] = useState(null);
@@ -483,22 +421,9 @@ export default function DesktopPage({ onNavigate }) {
     dragIndex.current = null;
   };
 
-  useEffect(() => () => clearTimeout(replyTimer.current), []);
-
-  const sendMessage = text => {
-    setChatOpen(true);
-    setMessages(prev => [...prev, { role: 'user', text }]);
-    setPending(true);
-    clearTimeout(replyTimer.current);
-    replyTimer.current = setTimeout(() => {
-      setPending(false);
-      setMessages(prev => [...prev, { role: 'assistant', text: `已收到「${text}」。我会安排合适的 Agent 处理，执行进度可以在「任务中心」卡片实时查看。` }]);
-    }, 900);
-  };
-
   return <PageShell variant="desktop">
     <GlassHeader user={currentUser} />
-    <main className={`px-8 pb-32 pt-8 transition-all duration-300 ${chatOpen ? 'xl:mr-[384px]' : ''}`}>
+    <main className={`px-8 pb-32 pt-8 transition-all duration-300 ${superAgentOpen ? 'xl:mr-[392px]' : ''}`}>
       <div className="mx-auto max-w-[1280px]">
         <div className="grid auto-rows-fr grid-cols-1 gap-5 lg:grid-cols-2">
           {cardOrder.map((id, index) => {
@@ -517,7 +442,7 @@ export default function DesktopPage({ onNavigate }) {
         </div>
       </div>
     </main>
-    <ChatDock open={chatOpen} onToggle={() => setChatOpen(v => !v)} messages={messages} onSend={sendMessage} pending={pending} />
+    <DesktopSuperAgentDock open={superAgentOpen} onToggle={() => setSuperAgentOpen(value => !value)} onOpenDetail={() => onNavigate('agents', { agentId: SUPER_AGENT_ID })} onOpenReport={() => onNavigate('sources', { navPage: 'report' })} onOpenTask={taskId => onNavigate('agents', { agentId: SUPER_AGENT_ID, taskId })} />
     <GlassDock active="desktop" onNavigate={onNavigate} />
     <CreateAgentDialog open={showCreateAgent} onOpenChange={setShowCreateAgent} onCreate={agent => setAgents(prev => [agent, ...prev])} />
     <MomentDetailDialog moment={momentDetail} onClose={() => setMomentDetail(null)} />

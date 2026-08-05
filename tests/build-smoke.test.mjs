@@ -28,3 +28,10 @@ test("critical product pages remain wired into the app", () => {
     assert.match(app, new RegExp(page), `missing page integration: ${page}`);
   }
 });
+
+test("Super Agent provider and overlay remain wired into the application shell", () => {
+  const app = read("../src/App.jsx");
+  assert.match(app, /SuperAgentProvider/);
+  assert.match(app, /SuperAgentOverlay/);
+  assert.match(app, /SUPER_AGENT_ID/);
+});
